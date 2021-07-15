@@ -26,18 +26,16 @@ protected:
     try {
       if(where == GRB_CB_MIPSOL) {
         int i, n = graph->getN();
-        vector<vector<int>> g = vector<vector<int>>(n+1, vector<int>());
+        vector<vector<int>> g = vector<vector<int>>(n+2, vector<int>());
 
         for(i = 0; i <= n; i++)
           for (auto *arc : graph->arcs[i])
-            if(getSolution(x[i][arc->getD()]) > 0.5) {
-              cout << i << " -> " << arc->getD() << endl;
+            if(getSolution(x[i][arc->getD()]) > 0.5)
               g[i].push_back(arc->getD());
-            }
 
         int s;
-        vector<bool> visited(n+1, false);
-        vector<vector<int>> conn = vector<vector<int>>(n+1, vector<int>());
+        vector<bool> visited(n+2, false);
+        vector<vector<int>> conn = vector<vector<int>>(n+2, vector<int>());
 
         for(i = n; i >= 0; i--) {
           vector<int> stack;
@@ -59,30 +57,27 @@ protected:
 
         for(i = 0; i < n; i++) {
           if(conn[i].size() > 1) {
-            for(int u : conn[i]) {
-              for(int b : graph->nodes[u].second) {
-                if (getSolution(y[u][b]) > 0.5) {
-                  GRBLinExpr in = 0, out = 0;
-                  //from root
-                  for(int v : conn[n]) {
-                    for(auto *arc : graph->arcs[v])
-                      if(arc->getD() == u) in += x[v][u];
-                  }
-                  // to root
-                  for(int v : graph->nodesPerBlock[b]){
-                    for(auto *arc : graph->arcs[v])
-                      for(int k : conn[n])
-                        if(arc->getD() == k) out += x[v][k];
-                  }
-                  addLazy(out >= y[u][b]);
-                  addLazy(in >= y[u][b]);
-                  break;
+            GRBLinExpr expr = 0;
+            for(auto v : conn[i]) {
+              if(v > n) continue;
+              for(auto *arc : graph->arcs[v]) {
+                bool isIn = false;
+                for(auto k : conn[i])
+                  if(k == arc->getD()) isIn = true;
+                if(!isIn) expr += x[v][arc->getD()];
+              }
+            }
+
+            for(auto v : conn[i]) {
+              if(v > n) continue;
+              for(auto b : graph->nodes[v].second) {
+                if(getSolution(y[v][b]) > 0.5) {
+                  addLazy(expr >= y[v][b]);
                 }
               }
             }
           }
         }
-        getchar();
       }
   } catch(GRBException e) {
     cout << "Error number: " << e.getErrorCode() << endl;
@@ -147,8 +142,8 @@ void Model::initModelExp() {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), timeConstraint(0.1);
-  inseticideConstraint(20);
+  maxAttending(), attendingPath(), timeConstraint(15);
+  inseticideConstraint(30);
   cout << "All done!" << endl;
 }
 
@@ -156,8 +151,8 @@ void Model::initModelCompact() {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), compactTimeConstraint(0.5);
-  inseticideConstraint(20);
+  maxAttending(), attendingPath(), compactTimeConstraint(15);
+  inseticideConstraint(30);
   cout << "All done!" << endl;
 }
 
@@ -165,10 +160,17 @@ void Model::objectiveFunction() {
   GRBLinExpr objective;
   int i, j, n = graph->getN();
 
-  for(int i = 0; i < n; i++) {
+  for(i = 0; i < n; i++) {
     j = graph->nodes[i].first;
     for(auto b : graph->nodes[i].second) {
-      objective += y[j][b];
+      objective += (y[j][b] * profitBlock(b));
+    }
+  }
+
+  for(i = 0; i < n; i++) {
+    for(auto *arc : graph->arcs[i]) {
+      if (arc->getD() >= n) continue;
+      objective -= (x[i][arc->getD()]);
     }
   }
 
@@ -196,17 +198,18 @@ void Model::flowConservation() {
   for (i = 0; i < n; i++) {
     GRBLinExpr flow_out, flow_in;
     for (auto *arc : graph->arcs[i]) {
-      if(arc->getD() == n) continue;
-      j = arc->getD();
-      flow_out += x[i][j];
+      if(arc->getD() >= n) continue;
+      flow_out += x[i][arc->getD()];
     }
-    for (j = 0; j <= n; j++) {
+    for (j = 0; j < n; j++) {
       for (auto *arc : graph->arcs[j]) {
-        if (arc->getD() == i) flow_in += x[j][i];
+        if (arc->getD() == i and arc->getD() < n) flow_in += x[j][i];
       }
     }
+    flow_out += x[i][n+1]; flow_in += x[n][i];
     model.addConstr(flow_in - flow_out == 0, "flow_conservation_" + to_string(i));
   }
+
   cout << "Flow conservation" << endl;
 }
 
@@ -229,7 +232,7 @@ void Model::attendingPath() {
   for (bl = 0; bl < b; bl++) {
     for(auto i : graph->nodesPerBlock[bl]) {
       GRBLinExpr served;
-      for(j = 0; j < n; j++)
+      for(j = 0; j <= n; j++)
         for(auto *arc : graph->arcs[j])
           if (arc->getD() == i) served += x[j][i];
       model.addConstr(served >= y[i][bl], "att_path_" + to_string(bl) + "_" + to_string(i));
@@ -258,13 +261,13 @@ void Model::timeConstraint(float maxTime) {
 void Model::compactTimeConstraint(float maxTime) {
   int i, j, n = graph->getN();
   model.addConstr(t[n] == 0);
+
   for(i = 0; i <= n; i++) {
     if (i == n) continue;
     for(auto *arc : graph->arcs[i]) {
       j = arc->getD();
-      cout << j << endl;
       GRBLinExpr expr = 0;
-      expr += t[i] + (timeArc(arc->getLength(), 1500) * x[i][j] - 100 * (1 - x[i][j]));
+      expr += t[i] + (timeArc(arc->getLength(), 1500) * x[i][j] - 1 * (1 - x[i][j]));
       if(arc->getBlock() != -1)
         expr += timeBlock(1500, arc->getBlock()) * y[i][arc->getBlock()];
       model.addConstr(t[j] >= expr);
@@ -308,14 +311,17 @@ float Model::inseticideBlock(float perMeter, int block) {
   return consumed;
 }
 
-void Model::solve(string timeLimit) {
+float Model::profitBlock(int block) {
+  int i, n = graph->getN();
+  float total = 0.0;
+  for(auto *arc : graph->arcsPerBlock[block]) total += arc->getCases();
+  return total/(float)graph->arcsPerBlock[block].size();
+}
+
+void Model::solveCompact(string timeLimit) {
   try {
     model.set("TimeLimit", timeLimit);
-    //model.set(GRB_IntParam_LazyConstraints, 1);
-    // model.set(GRB_DoubleParam_Heuristics, 0.0);
-    //cyclecallback cb = cyclecallback(graph, graph->getN(), x, y);
     model.update();
-    //model.setCallback(&cb);
     // model.computeIIS();
     model.set("OutputFlag", "0");
     model.write("model.lp");
@@ -324,6 +330,25 @@ void Model::solve(string timeLimit) {
     cout << ex.getMessage() << endl;
   }
 }
+
+void Model::solveExp(string timeLimit) {
+  try {
+    model.set("TimeLimit", timeLimit);
+
+    model.set(GRB_IntParam_LazyConstraints, 1);
+    cyclecallback cb = cyclecallback(graph, graph->getN(), x, y);
+    model.setCallback(&cb);
+
+    model.update();
+    // model.computeIIS();
+    model.set("OutputFlag", "0");
+    model.write("model.lp");
+    model.optimize();
+  } catch (GRBException &ex) {
+    cout << ex.getMessage() << endl;
+  }
+}
+
 
 void Model::showSolution(){
   try {

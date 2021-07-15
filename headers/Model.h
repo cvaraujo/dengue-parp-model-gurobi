@@ -49,7 +49,11 @@ public:
 
   float inseticideBlock(float perMeter, int block);
 
-  void solve(string timeLimit);
+  float profitBlock(int block);
+
+  void solveCompact(string timeLimit);
+
+  void solveExp(string timeLimit);
 
   void showSolution();
 
