@@ -6,17 +6,17 @@
 
 int main(int argc, const char *argv[]) {
   Graph *g = new Graph(argv[1]);
-  Model *model = new Model(g);
+  // Model *model = new Model(g);
   Model *model2 = new Model(g);
-  model->createVariables();
-  model->initModelExp();
-  model->solveExp("3600");
-  model->showSolution();
+  // model->createVariables();
+  // model->initModelExp();
+  // model->solveExp("3600");
+  // model->showSolution();
 
   cout << "------------------" << endl;
   model2->createVariables();
   model2->initModelCompact();
   model2->solveCompact("3600");
-  model2->showSolution();
+  model2->showSolution(argv[2]);
   return 0;
 }

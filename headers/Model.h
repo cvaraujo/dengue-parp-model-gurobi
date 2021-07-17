@@ -55,7 +55,7 @@ public:
 
   void solveExp(string timeLimit);
 
-  void showSolution();
+  void showSolution(string output);
 
   void writeSolution(string instance, int preprocessingTime);
 };

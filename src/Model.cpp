@@ -350,15 +350,28 @@ void Model::solveExp(string timeLimit) {
 }
 
 
-void Model::showSolution(){
+void Model::showSolution(string result){
   try {
+    ofstream output;
+    output.open(result);
+
     int n = graph->getN(), b = graph->getB();
+    output << "Nodes: " << n << endl;
+    output << "Arcs: " << graph->getM() << endl;
+    output << "Blocks: " << b << endl;
+    output << "UB: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+    output << "LB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;
+
+    output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
+    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
+
     cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
 
     cout << "X" << endl;
     for(int i = 0; i <= n; i++){
       for(auto *arc : graph->arcs[i]) {
-        if(x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0) cout << i << " -- " << arc->getD() << endl;
+        if(x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0)
+          output << "X: " << i << " " << arc->getD() << endl;
       }
     }
     cout << "---------------------------------------------" << endl;
@@ -366,7 +379,8 @@ void Model::showSolution(){
     for (int i = 0; i < n; i++) {
       int o = graph->nodes[i].first;
       for (auto bl : graph->nodes[i].second) {
-        if(y[i][bl].get(GRB_DoubleAttr_X) > 0) cout << i << " -> " << bl << endl;
+        if(y[i][bl].get(GRB_DoubleAttr_X) > 0)
+          output << "Y: " << i << " " << bl << endl;
       }
     }
   } catch (GRBException &ex) {
