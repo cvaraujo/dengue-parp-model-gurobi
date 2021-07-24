@@ -167,12 +167,12 @@ void Model::objectiveFunction() {
     }
   }
 
-  for(i = 0; i < n; i++) {
+  /*for(i = 0; i < n; i++) {
     for(auto *arc : graph->arcs[i]) {
       if (arc->getD() >= n) continue;
       objective -= (x[i][arc->getD()]);
     }
-  }
+  }*/
 
   model.setObjective(objective, GRB_MAXIMIZE);
   model.update();
@@ -323,7 +323,7 @@ void Model::solveCompact(string timeLimit) {
     model.set("TimeLimit", timeLimit);
     model.update();
     // model.computeIIS();
-    model.set("OutputFlag", "0");
+    //model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
@@ -341,7 +341,7 @@ void Model::solveExp(string timeLimit) {
 
     model.update();
     // model.computeIIS();
-    model.set("OutputFlag", "0");
+    //model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
@@ -384,6 +384,37 @@ void Model::showSolution(string result){
       }
     }
   } catch (GRBException &ex) {
-    cout << ex.getMessage() << endl;
+    ofstream output;
+    output.open(result);
+
+    int n = graph->getN(), b = graph->getB();
+    output << "Nodes: " << n << endl;
+    output << "Arcs: " << graph->getM() << endl;
+    output << "Blocks: " << b << endl;
+
+    output << "UB: 999999" << endl;
+    output << "LB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;
+    output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
+    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
+
+    cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+
+    cout << "X" << endl;
+    for(int i = 0; i <= n; i++){
+      for(auto *arc : graph->arcs[i]) {
+        if(x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0)
+          output << "X: " << i << " " << arc->getD() << endl;
+      }
+    }
+    cout << "---------------------------------------------" << endl;
+    cout << "Y" << endl;
+    for (int i = 0; i < n; i++) {
+      int o = graph->nodes[i].first;
+      for (auto bl : graph->nodes[i].second) {
+        if(y[i][bl].get(GRB_DoubleAttr_X) > 0)
+          output << "Y: " << i << " " << bl << endl;
+      }
+    }
+   cout << ex.getMessage() << endl;
   }
 }
