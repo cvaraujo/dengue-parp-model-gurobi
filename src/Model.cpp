@@ -267,7 +267,7 @@ void Model::compactTimeConstraint(float maxTime) {
     for(auto *arc : graph->arcs[i]) {
       j = arc->getD();
       GRBLinExpr expr = 0;
-      expr += t[i] + (timeArc(arc->getLength(), 500) * x[i][j] - 1 * (1 - x[i][j]));
+      expr += t[i] + (timeArc(arc->getLength(), 500) * x[i][j] - 121 * (1 - x[i][j]));
       if(arc->getBlock() != -1)
         expr += timeBlock(250, arc->getBlock()) * y[i][arc->getBlock()];
       model.addConstr(t[j] >= expr);
