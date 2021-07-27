@@ -142,8 +142,8 @@ void Model::initModelExp() {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), timeConstraint(15);
-  inseticideConstraint(30);
+  maxAttending(), attendingPath(), timeConstraint(120);
+  inseticideConstraint(2000);
   cout << "All done!" << endl;
 }
 
@@ -151,8 +151,8 @@ void Model::initModelCompact() {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), compactTimeConstraint(15);
-  inseticideConstraint(30);
+  maxAttending(), attendingPath(), compactTimeConstraint(120);
+  inseticideConstraint(2000);
   cout << "All done!" << endl;
 }
 
@@ -248,10 +248,10 @@ void Model::timeConstraint(float maxTime) {
   for(i = 0; i < n; i++) {
     for (auto *arc : graph->arcs[i]) {
       j = arc->getD();
-      arcTravel += x[i][j] * timeArc(arc->getLength(), 30000);
+      arcTravel += x[i][j] * timeArc(arc->getLength(), 500);
     }
     for (auto b : graph->nodes[i].second) {
-      blockTravel += y[i][b] * timeBlock(15000, b);
+      blockTravel += y[i][b] * timeBlock(250, b);
     }
   }
   model.addConstr(arcTravel + blockTravel <= maxTime, "max_time");
@@ -267,13 +267,12 @@ void Model::compactTimeConstraint(float maxTime) {
     for(auto *arc : graph->arcs[i]) {
       j = arc->getD();
       GRBLinExpr expr = 0;
-      expr += t[i] + (timeArc(arc->getLength(), 1500) * x[i][j] - 1 * (1 - x[i][j]));
+      expr += t[i] + (timeArc(arc->getLength(), 500) * x[i][j] - 1 * (1 - x[i][j]));
       if(arc->getBlock() != -1)
-        expr += timeBlock(1500, arc->getBlock()) * y[i][arc->getBlock()];
+        expr += timeBlock(250, arc->getBlock()) * y[i][arc->getBlock()];
       model.addConstr(t[j] >= expr);
     }
   }
-  cout << "passei"<< endl;
   model.addConstr(t[n+1] <= maxTime);
   cout << "Time constraint done!" << endl;
 }
@@ -284,7 +283,7 @@ void Model::inseticideConstraint(float maxInseticide) {
 
   for(i = 0; i < n; i++) {
     for(auto b : graph->nodes[i].second) {
-      insConsumed += y[i][b] * inseticideBlock(0.01, b);
+      insConsumed += y[i][b] * inseticideBlock(75, b);
     }
   }
   model.addConstr(insConsumed <= maxInseticide, "max_inseticide");
@@ -306,16 +305,16 @@ float Model::timeBlock(float speed, int block) {
 float Model::inseticideBlock(float perMeter, int block) {
   float consumed = 0;
   for (auto *arc : graph->arcsPerBlock[block]) {
-   consumed += arc->getLength() * perMeter;
+   consumed += timeArc(arc->getLength(), 250) * perMeter;
   }
   return consumed;
 }
 
 float Model::profitBlock(int block) {
   int i, n = graph->getN();
-  float total = 0.0;
+  int total = 0;
   for(auto *arc : graph->arcsPerBlock[block]) total += arc->getCases();
-  return total/(float)graph->arcsPerBlock[block].size();
+  return total;//(float)graph->arcsPerBlock[block].size();
 }
 
 void Model::solveCompact(string timeLimit) {
