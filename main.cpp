@@ -6,7 +6,7 @@
 
 int main(int argc, const char *argv[]) {
   Graph *g = new Graph(argv[1]);
-  if(argv[3] == "e") {
+  if(strcmp(argv[3], "e") == 0) {
   Model *model = new Model(g);
  
   model->createVariables();
