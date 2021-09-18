@@ -7,19 +7,18 @@
 int main(int argc, const char *argv[]) {
   Graph *g = new Graph(argv[1]);
   if(strcmp(argv[3], "e") == 0) {
-  Model *model = new Model(g);
- 
-  model->createVariables();
-  model->initModelExp();
-  model->solveExp("3600");
-  model->showSolution(argv[2]);
+    Model *model = new Model(g);
+    model->createVariables();
+    model->initModelExp();
+    model->solveExp("3600");
+    model->showSolution(argv[2]);
   } else {
-  cout << "------------------" << endl;
-  Model *model2 = new Model(g);
-  model2->createVariables();
-  model2->initModelCompact();
-  model2->solveCompact("3600");
-  model2->showSolution(argv[2]);
+    cout << "------------------" << endl;
+    Model *model2 = new Model(g);
+    model2->createVariables();
+    model2->initModelCompact();
+    model2->solveCompact("3600");
+    model2->showSolution(argv[2]);
   }
   return 0;
 }

@@ -25,6 +25,7 @@ protected:
   void callback() {
     try {
       if(where == GRB_CB_MIPSOL) {
+        return;
         int i, n = graph->getN();
         vector<vector<int>> g = vector<vector<int>>(n+2, vector<int>());
 
@@ -79,12 +80,57 @@ protected:
           }
         }
       }
-  } catch(GRBException e) {
-    cout << "Error number: " << e.getErrorCode() << endl;
-    cout << e.getMessage() << endl;
-  } catch (...) {
-    cout << "Error during callback" << endl;
-  }
+      else if(where == GRB_CB_MIPNODE) {
+        int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
+        if(mipStatus == GRB_OPTIMAL) {
+          int i, n = graph->getN();
+
+          ListDigraph ghu;
+          ListDigraph::ArcMap<double> capacity(ghu);
+          vector<ListDigraph::Node> setNodes = vector<ListDigraph::Node>(n+2);
+          ListDigraph::Node source, target;
+
+          for (i = 0; i < n+2; i++) setNodes[i] = ghu.addNode();
+
+          for(i = 0; i <= n; i++)
+            for (auto *arc : graph->arcs[i])
+              if(getNodeRel(x[i][arc->getD()]) > 0) {
+                ListDigraph::Arc ed = ghu.addArc(setNodes[i], setNodes[arc->getD()]);
+                capacity[ed] = double(getNodeRel(x[i][arc->getD()]));
+              }
+
+          for(i = 0; i < n; i++) {
+            for(auto b : graph->nodes[i].second) {
+              if (getNodeRel(y[i][b]) > 0.9) {
+                Preflow<ListDigraph, ListDigraph::ArcMap<double>> preflow(ghu, capacity, setNodes[i], setNodes[n+1]);
+                preflow.runMinCut();
+
+                double cutValue = preflow.flowValue();
+                if (cutValue >= getNodeRel(y[i][b])) continue;
+
+                GRBLinExpr expr = 0;
+                int n_arcs = 0, s, t;
+                for (ListDigraph::ArcIt a(ghu); a != INVALID; ++a) {
+                  s = ghu.id(ghu.source(a)), t = ghu.id(ghu.target(a));
+                  if (s == n || t == n+1) continue;
+                  expr += x[s][t];
+                  n_arcs++;
+                }
+
+                if(n_arcs < 1) break;
+                addCut(expr >= y[i][b]);
+                break;
+              }
+            }
+          }
+        }
+      }
+    } catch(GRBException e) {
+      cout << "Error number: " << e.getErrorCode() << endl;
+      cout << e.getMessage() << endl;
+    } catch (...) {
+      cout << "Error during callback" << endl;
+    }
   }
 };
 
@@ -102,7 +148,8 @@ void Model::createVariables() {
 
     x = vector<vector<GRBVar>>(n+2, vector<GRBVar>(n+2));
     y = vector<vector<GRBVar>>(n, vector<GRBVar>(b));
-    t = vector<GRBVar>(n+2);
+    t = vector<vector<GRBVar>>(n+2, vector<GRBVar>(n+2));
+    // t = vector<GRBVar>(n+2);
 
     // variables x
     char name[30];
@@ -124,10 +171,17 @@ void Model::createVariables() {
     }
 
     // variables t
-    for (int i = 0; i <= n+1; i++) {
-      sprintf(name, "t_%d", i);
-      t[i] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
+    for (o = 0; o <= n; o++) {
+      for (auto *arc : graph->arcs[o]) {
+        d = arc->getD();
+        sprintf(name, "t_%d_%d", o, d);
+        t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
+      }
     }
+    // for (int i = 0; i <= n+1; i++) {
+    //   sprintf(name, "t_%d", i);
+    //   t[i] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
+    // }
 
     model.update();
     cout << "Create variables" << endl;
@@ -259,21 +313,27 @@ void Model::timeConstraint(float maxTime) {
 }
 
 void Model::compactTimeConstraint(float maxTime) {
-  int i, j, n = graph->getN();
-  model.addConstr(t[n] == 0);
+  int b, i, j, k, n = graph->getN();
 
-  for(i = 0; i <= n; i++) {
-    if (i == n) continue;
+  for(auto *arc: graph->arcs[n]) model.addConstr(t[n][arc->getD()] == 0);
+
+  for(i = 0; i < n; i++) {
     for(auto *arc : graph->arcs[i]) {
       j = arc->getD();
-      GRBLinExpr expr = 0;
-      expr += t[i] + (timeArc(arc->getLength(), 500) * x[i][j] - 121 * (1 - x[i][j]));
-      if(arc->getBlock() != -1)
-        expr += timeBlock(250, arc->getBlock()) * y[i][arc->getBlock()];
-      model.addConstr(t[j] >= expr);
+      if(j == n+1) continue;
+
+      b = arc->getBlock();
+      GRBLinExpr time_ij = 0;
+      time_ij += t[i][j] + (timeArc(arc->getLength(), 500) * x[i][j]);
+      if(b != -1) time_ij += timeBlock(250, b) * y[i][b];
+
+      for(auto *arcl : graph->arcs[j]) {
+        k = arcl->getD();
+        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * graph->getMtime());
+      }
     }
   }
-  model.addConstr(t[n+1] <= maxTime);
+  for(i = 0; i < n; i++) model.addConstr(t[i][n+1] <= maxTime);
   cout << "Time constraint done!" << endl;
 }
 
@@ -305,7 +365,7 @@ float Model::timeBlock(float speed, int block) {
 float Model::inseticideBlock(float perMeter, int block) {
   float consumed = 0;
   for (auto *arc : graph->arcsPerBlock[block]) {
-   consumed += timeArc(arc->getLength(), 250) * perMeter;
+    consumed += timeArc(arc->getLength(), 250) * perMeter;
   }
   return consumed;
 }
@@ -322,7 +382,7 @@ void Model::solveCompact(string timeLimit) {
     model.set("TimeLimit", timeLimit);
     model.update();
     // model.computeIIS();
-    //model.set("OutputFlag", "0");
+    model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
@@ -334,13 +394,13 @@ void Model::solveExp(string timeLimit) {
   try {
     model.set("TimeLimit", timeLimit);
 
+    // model.set(GRB_DoubleParam_Heuristics, 0.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
     cyclecallback cb = cyclecallback(graph, graph->getN(), x, y);
     model.setCallback(&cb);
 
     model.update();
-    // model.computeIIS();
-    //model.set("OutputFlag", "0");
+    model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
@@ -354,12 +414,31 @@ void Model::showSolution(string result){
     ofstream output;
     output.open(result);
 
-    int n = graph->getN(), b = graph->getB();
+    int n = graph->getN(), b = graph->getB(), j;
     output << "Nodes: " << n << endl;
     output << "Arcs: " << graph->getM() << endl;
     output << "Blocks: " << b << endl;
     output << "UB: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
     output << "LB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;
+
+    double timeUsed = 0;
+    double insecUsed = 0;
+    for(int i = 0; i < n; i++) {
+      for (auto *arc : graph->arcs[i]) {
+        j = arc->getD();
+        if (x[i][j].get(GRB_DoubleAttr_X) > 0.5)
+          timeUsed += timeArc(arc->getLength(), 500);
+      }
+      for (auto b : graph->nodes[i].second) {
+        if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
+          timeUsed += timeBlock(250, b);
+          insecUsed += inseticideBlock(75, b);
+        }
+      }
+    }
+
+    output << "Used Time: " << timeUsed  << endl;
+    output << "Used Insecticide: " << insecUsed  << endl;
 
     output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
@@ -386,10 +465,29 @@ void Model::showSolution(string result){
     ofstream output;
     output.open(result);
 
-    int n = graph->getN(), b = graph->getB();
+    int n = graph->getN(), b = graph->getB(), j;
     output << "Nodes: " << n << endl;
     output << "Arcs: " << graph->getM() << endl;
     output << "Blocks: " << b << endl;
+
+    double timeUsed = 0;
+    double insecUsed = 0;
+    for(int i = 0; i < n; i++) {
+      for (auto *arc : graph->arcs[i]) {
+        j = arc->getD();
+        if (x[i][j].get(GRB_DoubleAttr_X) > 0.5)
+          timeUsed += timeArc(arc->getLength(), 500);
+      }
+      for (auto b : graph->nodes[i].second) {
+        if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
+          timeUsed += timeBlock(250, b);
+          insecUsed += inseticideBlock(75, b);
+        }
+      }
+    }
+
+    output << "Used Time: " << timeUsed  << endl;
+    output << "Used Insecticide: " << insecUsed  << endl;
 
     output << "UB: 999999" << endl;
     output << "LB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;

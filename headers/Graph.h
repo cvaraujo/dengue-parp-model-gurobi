@@ -12,6 +12,7 @@ using namespace std;
 
 class Graph {
   int n, m, b;
+  double m_time;
 
 public:
   vector<vector<Arc *>> arcs;
@@ -21,6 +22,10 @@ public:
 
   Graph(string instance);
 
+  double timeArc(float distance, float speed);
+
+  double timeBlock(float speed, int block);
+
   int getN() const;
 
   int getM() const;
@@ -28,6 +33,8 @@ public:
   int getB() const;
 
   int getRoot() const;
+
+  double getMtime();
 
   void showGraph();
 };

@@ -36,9 +36,13 @@ Graph::Graph(string instance) {
 
   nodes.push_back(make_pair(n, vector<int>()));
 
+  vector<double> bigm_time;
+
   for(k = 0; k < m; k++) {
     file >> token >> i >> j >> length >> block >> cases;
     Arc *arc = new Arc(i, j, length, block, cases);
+
+    bigm_time.push_back(timeArc(length, 500));
 
     arcs[i].push_back(arc);
     if(block != -1) arcsPerBlock[block].push_back(arc);
@@ -49,7 +53,32 @@ Graph::Graph(string instance) {
     arcs[i].push_back(new Arc(i, n+1, 0, -1, 0));
   }
 
+  m_time = 0;
+  for(i = 0; i < b; i++) m_time += timeBlock(250, i);
+
+  sort(bigm_time.begin(), bigm_time.end(), greater<double>());
+  for(i = 0; i < n-1; i++) m_time += bigm_time[i];
+
+  cout << "M Time " << m_time << endl;
+
   cout << "Load graph successfully" << endl;
+}
+
+
+double Graph::getMtime() {
+  return m_time;
+}
+
+double Graph::timeArc(float distance, float speed) {
+  return distance > 0 ? distance/speed : 0;
+}
+
+double Graph::timeBlock(float speed, int block) {
+  float time = 0;
+  for (auto *arc : arcsPerBlock[block]) {
+    time += timeArc(arc->getLength(), speed);
+  }
+  return time;
 }
 
 void Graph::showGraph() {

@@ -15,8 +15,8 @@ class Model {
   Graph *graph;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
-  vector<vector<GRBVar>> x, y;
-  vector<GRBVar> t;
+  vector<vector<GRBVar>> x, y, t;
+  // vector<GRBVar> t;
 
 public:
   void objectiveFunction();
