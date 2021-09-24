@@ -178,10 +178,6 @@ void Model::createVariables() {
         t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
       }
     }
-    // for (int i = 0; i <= n+1; i++) {
-    //   sprintf(name, "t_%d", i);
-    //   t[i] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
-    // }
 
     model.update();
     cout << "Create variables" << endl;
@@ -197,7 +193,7 @@ void Model::initModelExp() {
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), timeConstraint(120);
-  inseticideConstraint(2000);
+  inseticideConstraint(3000);
   cout << "All done!" << endl;
 }
 
@@ -206,7 +202,7 @@ void Model::initModelCompact() {
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), compactTimeConstraint(120);
-  inseticideConstraint(2000);
+  inseticideConstraint(3000);
   cout << "All done!" << endl;
 }
 
@@ -221,12 +217,12 @@ void Model::objectiveFunction() {
     }
   }
 
-  /*for(i = 0; i < n; i++) {
+  for(i = 0; i < n; i++) {
     for(auto *arc : graph->arcs[i]) {
       if (arc->getD() >= n) continue;
       objective -= (x[i][arc->getD()]);
     }
-  }*/
+  }
 
   model.setObjective(objective, GRB_MAXIMIZE);
   model.update();
