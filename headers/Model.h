@@ -25,9 +25,9 @@ public:
 
   void createVariables();
 
-  void initModelExp();
+  void initModelExp(float maxTime, float maxInsecticide);
 
-  void initModelCompact();
+  void initModelCompact(float maxTime, float maxInsecticide);
 
   void artificialNodes();
 

@@ -9,6 +9,7 @@ class cyclecallback: public GRBCallback {
 public:
   double lastiter, lastnode;
   int numvars;
+  int cuts = 0;
   vector<vector<GRBVar>> x, y;
 
   Graph *graph;
@@ -82,9 +83,14 @@ protected:
       }
       else if(where == GRB_CB_MIPNODE) {
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
+	double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
         if(mipStatus == GRB_OPTIMAL) {
           int i, n = graph->getN();
-
+	  double tresh = 0;
+	  cuts += 1;
+	  if (cuts > 90) tresh = 0.9;
+	  else tresh = 0.1 + (cuts / 100); 
+	  
           ListDigraph ghu;
           ListDigraph::ArcMap<double> capacity(ghu);
           vector<ListDigraph::Node> setNodes = vector<ListDigraph::Node>(n+2);
@@ -101,7 +107,7 @@ protected:
 
           for(i = 0; i < n; i++) {
             for(auto b : graph->nodes[i].second) {
-              if (getNodeRel(y[i][b]) > 0.9) {
+              if (getNodeRel(y[i][b]) >= tresh) {
                 Preflow<ListDigraph, ListDigraph::ArcMap<double>> preflow(ghu, capacity, setNodes[i], setNodes[n+1]);
                 preflow.runMinCut();
 
@@ -188,21 +194,21 @@ void Model::createVariables() {
   }
 }
 
-void Model::initModelExp() {
+void Model::initModelExp(float maxTime, float maxInsecticide) {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), timeConstraint(120);
-  inseticideConstraint(3000);
+  maxAttending(), attendingPath(), timeConstraint(maxTime);
+  inseticideConstraint(maxInsecticide);
   cout << "All done!" << endl;
 }
 
-void Model::initModelCompact() {
+void Model::initModelCompact(float maxTime, float maxInsecticide) {
   cout << "Begin the model creation" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
-  maxAttending(), attendingPath(), compactTimeConstraint(120);
-  inseticideConstraint(3000);
+  maxAttending(), attendingPath(), compactTimeConstraint(maxTime);
+  inseticideConstraint(maxInsecticide);
   cout << "All done!" << endl;
 }
 
@@ -298,7 +304,7 @@ void Model::timeConstraint(float maxTime) {
   for(i = 0; i < n; i++) {
     for (auto *arc : graph->arcs[i]) {
       j = arc->getD();
-      arcTravel += x[i][j] * timeArc(arc->getLength(), 500);
+      arcTravel += x[i][j] * timeArc(arc->getLength(), 350);
     }
     for (auto b : graph->nodes[i].second) {
       blockTravel += y[i][b] * timeBlock(250, b);
@@ -320,12 +326,12 @@ void Model::compactTimeConstraint(float maxTime) {
 
       b = arc->getBlock();
       GRBLinExpr time_ij = 0;
-      time_ij += t[i][j] + (timeArc(arc->getLength(), 500) * x[i][j]);
+      time_ij += t[i][j] + (timeArc(arc->getLength(), 350) * x[i][j]);
       if(b != -1) time_ij += timeBlock(250, b) * y[i][b];
 
       for(auto *arcl : graph->arcs[j]) {
         k = arcl->getD();
-        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * graph->getMtime());
+        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * maxTime);//graph->getMtime());
       }
     }
   }
