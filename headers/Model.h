@@ -58,6 +58,8 @@ public:
   void showSolution(string output);
 
   void writeSolution(string instance, int preprocessingTime);
+
+  bool check_solution();
 };
 
 

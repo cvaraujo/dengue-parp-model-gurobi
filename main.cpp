@@ -15,6 +15,9 @@ int main(int argc, const char *argv[]) {
     model->createVariables();
     model->initModelExp(time, insecticide);
     model->solveExp("3600");
+    bool feasible = model->check_solution();
+    if(feasible) cout << "Right result!" << endl;
+    else cout << "WRONG!!!!!" << endl;
     model->showSolution(argv[2]);
   } else {
     cout << "------------------" << endl;
@@ -22,6 +25,9 @@ int main(int argc, const char *argv[]) {
     model2->createVariables();
     model2->initModelCompact(time, insecticide);
     model2->solveCompact("3600");
+    bool feasible = model2->check_solution();
+    if (feasible) cout << "Right result!" << endl;
+    else cout << "WRONG!!!!!" << endl;
     model2->showSolution(argv[2]);
   }
   return 0;

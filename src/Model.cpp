@@ -26,7 +26,6 @@ protected:
   void callback() {
     try {
       if(where == GRB_CB_MIPSOL) {
-        return;
         int i, n = graph->getN();
         vector<vector<int>> g = vector<vector<int>>(n+2, vector<int>());
 
@@ -65,7 +64,10 @@ protected:
               for(auto *arc : graph->arcs[v]) {
                 bool isIn = false;
                 for(auto k : conn[i])
-                  if(k == arc->getD()) isIn = true;
+                  if(k == arc->getD()) {
+                    isIn = true;
+                    break;
+                  }
                 if(!isIn) expr += x[v][arc->getD()];
               }
             }
@@ -82,6 +84,7 @@ protected:
         }
       }
       else if(where == GRB_CB_MIPNODE) {
+        return;
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
 	double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
         if(mipStatus == GRB_OPTIMAL) {
@@ -155,8 +158,7 @@ void Model::createVariables() {
     x = vector<vector<GRBVar>>(n+2, vector<GRBVar>(n+2));
     y = vector<vector<GRBVar>>(n, vector<GRBVar>(b));
     t = vector<vector<GRBVar>>(n+2, vector<GRBVar>(n+2));
-    // t = vector<GRBVar>(n+2);
-
+    
     // variables x
     char name[30];
     for (o = 0; o <= n; o++) {
@@ -288,10 +290,11 @@ void Model::attendingPath() {
   for (bl = 0; bl < b; bl++) {
     for(auto i : graph->nodesPerBlock[bl]) {
       GRBLinExpr served;
-      for(j = 0; j <= n; j++)
-        for(auto *arc : graph->arcs[j])
-          if (arc->getD() == i) served += x[j][i];
-      model.addConstr(served >= y[i][bl], "att_path_" + to_string(bl) + "_" + to_string(i));
+      // for(j = 0; j < n; j++)
+      for(auto *arc : graph->arcs[i]) {
+        served += x[i][arc->getD()];
+      }
+      model.addConstr(served >= y[i][bl], "att_path_" + to_string(i) + "_" + to_string(bl));
     }
   }
   cout << "Make path to attending block" << endl;
@@ -331,11 +334,14 @@ void Model::compactTimeConstraint(float maxTime) {
 
       for(auto *arcl : graph->arcs[j]) {
         k = arcl->getD();
-        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * maxTime);//graph->getMtime());
+        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * maxTime);
+        model.addConstr(time_ij <= t[j][k] + (2 - x[i][j] - x[j][k]) * maxTime);
       }
     }
   }
-  for(i = 0; i < n; i++) model.addConstr(t[i][n+1] <= maxTime);
+  for(i = 0; i < n; i++) {
+    model.addConstr(t[i][n + 1] <= maxTime);
+  }
   cout << "Time constraint done!" << endl;
 }
 
@@ -376,7 +382,7 @@ float Model::profitBlock(int block) {
   int i, n = graph->getN();
   int total = 0;
   for(auto *arc : graph->arcsPerBlock[block]) total += arc->getCases();
-  return total;//(float)graph->arcsPerBlock[block].size();
+  return total;
 }
 
 void Model::solveCompact(string timeLimit) {
@@ -396,7 +402,7 @@ void Model::solveExp(string timeLimit) {
   try {
     model.set("TimeLimit", timeLimit);
 
-    // model.set(GRB_DoubleParam_Heuristics, 0.0);
+    model.set(GRB_DoubleParam_Heuristics, 0.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
     cyclecallback cb = cyclecallback(graph, graph->getN(), x, y);
     model.setCallback(&cb);
@@ -429,7 +435,7 @@ void Model::showSolution(string result){
       for (auto *arc : graph->arcs[i]) {
         j = arc->getD();
         if (x[i][j].get(GRB_DoubleAttr_X) > 0.5)
-          timeUsed += timeArc(arc->getLength(), 500);
+          timeUsed += timeArc(arc->getLength(), 350);
       }
       for (auto b : graph->nodes[i].second) {
         if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
@@ -450,7 +456,7 @@ void Model::showSolution(string result){
     cout << "X" << endl;
     for(int i = 0; i <= n; i++){
       for(auto *arc : graph->arcs[i]) {
-        if(x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0)
+        if(x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
           output << "X: " << i << " " << arc->getD() << endl;
       }
     }
@@ -480,10 +486,10 @@ void Model::showSolution(string result){
         if (x[i][j].get(GRB_DoubleAttr_X) > 0.5)
           timeUsed += timeArc(arc->getLength(), 500);
       }
-      for (auto b : graph->nodes[i].second) {
-        if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
-          timeUsed += timeBlock(250, b);
-          insecUsed += inseticideBlock(75, b);
+      for (auto bl : graph->nodes[i].second) {
+        if (y[i][bl].get(GRB_DoubleAttr_X) > 0.5) {
+          timeUsed += timeBlock(250, bl);
+          insecUsed += inseticideBlock(75, bl);
         }
       }
     }
@@ -514,6 +520,41 @@ void Model::showSolution(string result){
           output << "Y: " << i << " " << bl << endl;
       }
     }
-   cout << ex.getMessage() << endl;
+    cout << ex.getMessage() << endl;
   }
+}
+
+bool Model::check_solution() {
+  int n = graph->getN();
+
+  // Check connectivity
+  vector<bool> used_node = vector<bool>(n, false);
+
+  int start_node = n;
+  used_node[n] = true;
+  while (start_node != n + 1) {
+    bool find_next = false;
+    int j = 0;
+    for (auto *arc : graph->arcs[start_node]) {
+      j = arc->getD();
+      if (x[start_node][j].get(GRB_DoubleAttr_X) > 0.5) {
+        find_next = true;
+        break;
+      }
+    }
+    if (find_next){
+      start_node = j;
+      used_node[start_node] = true;
+    } else
+      return false;
+  }
+
+  for(int i = 0; i < n; i++)
+    for(auto *arc : graph->arcs[i])
+      if ((x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) && (!used_node[i] || !used_node[arc->getD()])){
+        return false;
+      }
+  cout << "[*] Connectivity ok!" << endl;
+
+  return true;
 }

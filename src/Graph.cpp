@@ -42,7 +42,7 @@ Graph::Graph(string instance) {
     file >> token >> i >> j >> length >> block >> cases;
     Arc *arc = new Arc(i, j, length, block, cases);
 
-    bigm_time.push_back(timeArc(length, 500));
+    bigm_time.push_back(timeArc(length, 350));
 
     arcs[i].push_back(arc);
     if(block != -1) arcsPerBlock[block].push_back(arc);
