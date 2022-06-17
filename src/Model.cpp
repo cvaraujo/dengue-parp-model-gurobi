@@ -528,30 +528,35 @@ bool Model::check_solution() {
   int n = graph->getN();
 
   // Check connectivity
-  vector<bool> used_node = vector<bool>(n, false);
+  vector<vector<bool>> used_arc = vector<vector<bool>>(n+2, vector<bool>(n+2, false));
 
   int start_node = n;
-  used_node[n] = true;
-  while (start_node != n + 1) {
+  while (start_node != (n + 1)) {
     bool find_next = false;
-    int j = 0;
+    int j = 0, target = 0;
     for (auto *arc : graph->arcs[start_node]) {
       j = arc->getD();
-      if (x[start_node][j].get(GRB_DoubleAttr_X) > 0.5) {
-        find_next = true;
-        break;
+      if (x[start_node][j].get(GRB_DoubleAttr_X) > 0.5 && !used_arc[start_node][j]) {
+        if (graph->exist_arc(j, start_node) && x[j][start_node].get(GRB_DoubleAttr_X) > 0.5) {
+          used_arc[j][start_node] = used_arc[start_node][j] = true;
+        } else {
+          find_next = true;
+          target = j;
+        }
       }
     }
     if (find_next){
-      start_node = j;
-      used_node[start_node] = true;
+      used_arc[start_node][target] = true;
+      start_node = target;
     } else
       return false;
   }
 
+  cout << "here" << endl;
+
   for(int i = 0; i < n; i++)
     for(auto *arc : graph->arcs[i])
-      if ((x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) && (!used_node[i] || !used_node[arc->getD()])){
+      if ((x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) && (!used_arc[i][arc->getD()])){
         return false;
       }
   cout << "[*] Connectivity ok!" << endl;

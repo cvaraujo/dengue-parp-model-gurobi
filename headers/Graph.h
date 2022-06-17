@@ -37,6 +37,8 @@ public:
   double getMtime();
 
   void showGraph();
+
+  bool exist_arc(int i, int j);
 };
 
 #endif

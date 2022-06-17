@@ -83,6 +83,16 @@ double Graph::timeBlock(float speed, int block) {
   return time;
 }
 
+bool Graph::exist_arc(int i, int j) {
+  if(i > n) return false;
+  for(auto *arc : arcs[i]) {
+    if(arc->getD() == j) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void Graph::showGraph() {
   for(int i = 0; i < n; i++)
     for(auto *arc : arcs[i])
