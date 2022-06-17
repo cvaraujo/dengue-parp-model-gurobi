@@ -7,7 +7,7 @@
 Graph::Graph(string instance) {
   int block, cases, i, j, k;
   float length;
-  string token, aux;
+  string token, aux, x, y;
   ifstream file;
   vector<string> blcs;
 
@@ -20,7 +20,7 @@ Graph::Graph(string instance) {
   arcsPerBlock = vector<vector<Arc *>>(b, vector<Arc *>());
 
   for(i = 0; i < n; i++) {
-    file >> token >> j >> aux;
+    file >> token >> j >> x >> y >> aux;
     boost::split(blcs, aux, boost::is_any_of(","));
     vector<int> blocks_node = vector<int>();
 
@@ -40,6 +40,8 @@ Graph::Graph(string instance) {
 
   for(k = 0; k < m; k++) {
     file >> token >> i >> j >> length >> block >> cases;
+    file.ignore(numeric_limits<streamsize>::max(), '\n');
+
     Arc *arc = new Arc(i, j, length, block, cases);
 
     bigm_time.push_back(timeArc(length, 350));
