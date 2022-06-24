@@ -52,7 +52,7 @@ Graph::Graph(string instance) {
 
   for(i = 0; i < n; i++) {
     arcs[n].push_back(new Arc(n, i, 0, -1, 0));
-    arcs[i].push_back(new Arc(i, n+1, 0, -1, 0));
+    arcs[i].push_back(new Arc(i, n, 0, -1, 0));
   }
 
   m_time = 0;
