@@ -254,12 +254,12 @@ void Model::objectiveFunction() {
     }
   }
 
-  for(i = 0; i < n; i++) {
-    for(auto *arc : graph->arcs[i]) {
-      if (arc->getD() >= n) continue;
-      objective -= (x[i][arc->getD()]);
-    }
-  }
+  // for(i = 0; i < n; i++) {
+  //   for(auto *arc : graph->arcs[i]) {
+  //     if (arc->getD() >= n) continue;
+  //     objective -= (x[i][arc->getD()]);
+  //   }
+  // }
 
   model.setObjective(objective, GRB_MAXIMIZE);
   model.update();
