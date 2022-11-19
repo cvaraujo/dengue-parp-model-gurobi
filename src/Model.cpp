@@ -13,11 +13,11 @@ public:
   int numvars;
   int cuts = 0;
   vector<vector<GRBVar>> x, y;
-  typedef ListDigraph G;
-  typedef G::Arc Edge;
-  typedef G::ArcIt EdgeIt;
+  typedef ListGraph G;
+  typedef G::Edge Edge;
+  typedef G::EdgeIt EdgeIt;
   typedef G::Node Node;
-  typedef G::ArcMap<double> LengthMap;
+  typedef G::EdgeMap<double> LengthMap;
   typedef G::NodeMap<bool> BoolNodeMap;
   Graph *graph;
 
@@ -33,7 +33,7 @@ protected:
   void callback() {
     try {
       if(where == GRB_CB_MIPSOL) {
-        // return;
+        return;
         int i, n = graph->getN();
         vector<vector<int>> g = vector<vector<int>>(n+2, vector<int>());
 
@@ -92,7 +92,6 @@ protected:
         }
       }
       else if(where == GRB_CB_MIPNODE) {
-        return;
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
         double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
 
@@ -100,64 +99,59 @@ protected:
           int i, n = graph->getN();
           cuts += 1;
 
+          // Basic structures to use Lemon
           G ghu;
           LengthMap capacity(ghu);
           vector<Node> setNodes = vector<Node>(n+1);
+          vector<bool> usedNode = vector<bool>(n, false);
           vector<Edge> setEdges;
 
+          // Create the node set
           for (i = 0; i <= n; i++) setNodes[i] = ghu.addNode();
 
-          G::ArcMap<double> map(ghu);
-
-          for(i = 0; i < n; i++)
-            for (auto *arc : graph->arcs[i])
-              if(getNodeRel(x[i][arc->getD()]) > 0) {
-                setEdges.push_back(ghu.addArc(setNodes[i], setNodes[arc->getD()]));
-                // G::Arc ed = ghu.addArc(setNodes[i], setNodes[arc->getD()]);
-                capacity[setEdges[setEdges.size()-1]] = double(getNodeRel(x[i][arc->getD()]));
+          // Create the edge set
+          int j;
+          for(i = 0; i < n; i++) {
+            for (auto *arc : graph->arcs[i]) {
+              j = arc->getD();
+              if(getNodeRel(x[i][j]) > 0) {
+                setEdges.push_back(ghu.addEdge(setNodes[i], setNodes[j]));
+                capacity[setEdges[setEdges.size()-1]] = double(getNodeRel(x[i][j]));
+                usedNode[i] = usedNode[j] = true;
               }
+            }
+          }
+          // Run GomoryHu
+          GomoryHu<G, LengthMap> gh(ghu, capacity);
+          gh.run();
 
-          // GomoryHu<G, LengthMap> gh(ghu, capacity);
-          HaoOrlin<G, LengthMap> gh(ghu, capacity);
-          // gh.run();
-          // BoolNodeMap bm(ghu);
+          // Init necessary structures
+          BoolNodeMap bm(ghu);
+          double cutValue;
 
           for(i = 0; i < n; i++) {
-            // Preflow<ListDigraph, ListDigraph::ArcMap<double>> preflow(ghu, capacity, setNodes[i], setNodes[n]);
-            // preflow.runMinCut();
-            // double cutValue = preflow.flowValue();
-            gh.run(setNodes[i]);
-            BoolNodeMap bm(ghu);
+            // If there is no arc using this node, ignore it
+            if(!usedNode[i]) continue;
 
-            // double cutValue = gh.minCutMap(setNodes[i], setNodes[n], bm);
-            double cutValue = gh.minCutMap(bm);
-
+            // Get the min-cut value
+            cutValue = gh.minCutMap(setNodes[n], setNodes[i], bm);
+            int u, v;
+            bool n_side, has_cut = false;
             for(auto b : graph->nodes[i].second) {
               if (cutValue < getNodeRel(y[i][b])) {
-                cout << "i " << i << " - b " << b << endl;
-                for(int j = 0; j < n; j++)
-                  if (bm[setNodes[j]]) cout << j << ", ";
-                cout << endl;
-                // getchar();
+                n_side = bm[setNodes[n]];
                 GRBLinExpr expr = 0;
-                bool hasCut = false;
-                for(int u = 0; u < n; u++) {
-                  if(u == i && bm[setNodes[u]]) {
+                for(u = 0; u <= n; u++) {
+                  if(usedNode[u] && bm[setNodes[u]] == n_side) {
                     for(auto *arc : graph->arcs[u]) {
-                      // if(arc->getD() >= n) continue;
-                      if (!bm[setNodes[arc->getD()]]) {
-                          expr += x[u][arc->getD()];
-                          hasCut = true;
+                      v = arc->getD();
+                      if(usedNode[v] && bm[setNodes[v]] != n_side) {
+                        expr += x[u][v];
                       }
                     }
                   }
                 }
-
-                if(hasCut){
-                  cout << "Expr: " << expr << endl;
-                  getchar();
-                  addCut(expr >= y[i][b]);
-                }
+                addCut(expr >= y[i][b]);
               }
             }
           }
@@ -430,13 +424,13 @@ void Model::solveExp(string timeLimit) {
   try {
     model.set("TimeLimit", timeLimit);
 
-    model.set(GRB_DoubleParam_Heuristics, 0.0);
+    model.set(GRB_DoubleParam_Heuristics, 1.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
     cyclecallback cb = cyclecallback(graph, graph->getN(), x, y);
     model.setCallback(&cb);
 
     model.update();
-    model.set("OutputFlag", "0");
+    model.set("OutputFlag", "1");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
