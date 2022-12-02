@@ -14,6 +14,9 @@
 #include <fstream>
 #include <gurobi_c++.h>
 #include "boost/algorithm/string.hpp"
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/dijkstra_shortest_paths.hpp>
 
 #include <lemon/dijkstra.h>
 #include <lemon/euler.h>
@@ -26,7 +29,10 @@ using namespace lemon;
 using namespace std;
 using namespace boost;
 
+typedef adjacency_list<listS, vecS, directedS, no_property,
+                       property<edge_weight_t, double>>
+    graph_t;
 
 #define EPSILON 0.001
 
-#endif //DPARP_INCLUDE_H
+#endif // DPARP_INCLUDE_H

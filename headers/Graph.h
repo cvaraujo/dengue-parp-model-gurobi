@@ -10,7 +10,8 @@
 
 using namespace std;
 
-class Graph {
+class Graph
+{
   int n, m, b;
   double m_time;
 
@@ -39,6 +40,8 @@ public:
   void showGraph();
 
   bool exist_arc(int i, int j);
+
+  void fillMissingArcs();
 };
 
 #endif
