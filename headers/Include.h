@@ -12,8 +12,10 @@
 #include <bits/ios_base.h>
 #include <algorithm>
 #include <fstream>
+#include <deque>
 #include <gurobi_c++.h>
 #include "boost/algorithm/string.hpp"
+#include "boost/algorithm/string/trim.hpp"
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>

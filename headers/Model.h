@@ -11,7 +11,8 @@
 #include <vector>
 using namespace std;
 
-class Model {
+class Model
+{
   Graph *graph;
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
@@ -25,7 +26,7 @@ public:
 
   void createVariables();
 
-  void initModelExp(float maxTime, float maxInsecticide);
+  void initModelExp(float maxTime, float maxInsecticide, bool warm_start);
 
   void initModelCompact(float maxTime, float maxInsecticide);
 
@@ -62,5 +63,4 @@ public:
   bool check_solution();
 };
 
-
-#endif //DPARP_MODEL_H
+#endif // DPARP_MODEL_H

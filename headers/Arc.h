@@ -5,8 +5,8 @@
 #ifndef DPARP_ARC_H
 #define DPARP_ARC_H
 
-
-class Arc {
+class Arc
+{
 
 private:
   int o, d, block, cases;
@@ -24,7 +24,10 @@ public:
   int getCases() const;
 
   float getLength() const;
+
+  void setCases(int cases);
+
+  void setBlock(int block);
 };
 
-
-#endif //MRP_ARC_H
+#endif // MRP_ARC_H

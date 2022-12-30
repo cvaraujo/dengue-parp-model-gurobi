@@ -7,7 +7,7 @@ include_directories(/opt/gurobi951/linux64/include /opt/boost_1_79_0 /opt/lemon-
 
 link_directories(/opt/gurobi951/linux64/lib /opt/boost_1_79_0 /opt/lemon-1.3.1/build/lemon)
 
-set(SOURCE_FILES main.cpp headers/Graph.h src/Graph.cpp headers/Include.h src/Arc.cpp headers/Arc.h headers/Model.h src/Model.cpp)
+set(SOURCE_FILES main.cpp headers/Graph.h src/Graph.cpp headers/Include.h src/Arc.cpp headers/Arc.h headers/Model.h src/Model.cpp headers/WarmStart.h src/WarmStart.cpp)
 
 add_executable(dparp ${SOURCE_FILES})
 
