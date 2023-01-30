@@ -315,6 +315,49 @@ void Model::createVariables()
   }
 }
 
+void Model::WarmStart(float maxTime, float maxInsecticide)
+{
+  int i, j;
+
+  // Warm start
+  vector<pair<int, int>> x, y;
+  double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y);
+
+  cout << "Heuristic OF = " << of << endl;
+
+  for (int i = 0; i <= graph->getN(); i++)
+  {
+    for (auto *arc : graph->arcs[i])
+    {
+      bool is_in = false;
+
+      for (auto pair : x)
+      {
+        int k = pair.first, j = pair.second;
+        if (k == i && j == arc->getD())
+        {
+          is_in = true;
+          break;
+        }
+      }
+      if (is_in)
+        this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 1.0);
+      else
+        this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 0.0);
+    }
+  }
+
+  model.update();
+
+  for (auto pair : y)
+  {
+    i = pair.first, j = pair.second;
+    this->y[i][j].set(GRB_DoubleAttr_Start, 1.0);
+  }
+
+  model.update();
+}
+
 void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
 {
   cout << "Begin the model creation" << endl;
@@ -325,45 +368,7 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
 
   if (warm_start)
   {
-    int i, j;
-
-    // Warm start
-    vector<pair<int, int>> x, y;
-    double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y);
-
-    cout << "Heuristic OF = " << of << endl;
-
-    for (int i = 0; i <= graph->getN(); i++)
-    {
-      for (auto *arc : graph->arcs[i])
-      {
-        bool is_in = false;
-
-        for (auto pair : x)
-        {
-          int k = pair.first, j = pair.second;
-          if (k == i && j == arc->getD())
-          {
-            is_in = true;
-            break;
-          }
-        }
-        if (is_in)
-          this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 1.0);
-        else
-          this->x[i][arc->getD()].set(GRB_DoubleAttr_Start, 0.0);
-      }
-    }
-
-    model.update();
-
-    for (auto pair : y)
-    {
-      i = pair.first, j = pair.second;
-      this->y[i][j].set(GRB_DoubleAttr_Start, 1.0);
-    }
-
-    model.update();
+    this->WarmStart(maxTime, maxInsecticide);
   }
   cout << "All done!" << endl;
 }
@@ -510,35 +515,37 @@ void Model::timeConstraint(float maxTime)
 void Model::compactTimeConstraint(float maxTime)
 {
   int b, i, j, k, n = graph->getN();
+  vector<float> block_time = vector<float>(graph->getB(), -1);   
 
-  for (auto *arc : graph->arcs[n])
-    model.addConstr(t[n][arc->getD()] == 0);
-
-  for (i = 0; i < n; i++)
+  for (i = 0; i <= n; i++)
   {
+    if(i < n) model.addConstr(t[n][i] == 0);
+
     for (auto *arc : graph->arcs[i])
     {
       j = arc->getD();
-      if (j >= n)
-        continue;
+      if (j >= n) continue;
 
-      b = arc->getBlock();
       GRBLinExpr time_ij = 0;
       time_ij += t[i][j] + (timeArc(arc->getLength(), 333.3) * x[i][j]);
-      if (b != -1)
-        time_ij += timeBlock(166.7, b) * y[i][b];
+      
+      for(auto b : graph->nodes[j].second) {
+        if(block_time[b] == -1) block_time[b] = timeBlock(166.7, b);
+
+        time_ij += block_time[b] * y[j][b];
+      }
 
       for (auto *arcl : graph->arcs[j])
       {
         k = arcl->getD();
-        model.addConstr(time_ij >= t[j][k] - (2 - x[i][j] - x[j][k]) * maxTime);
-        model.addConstr(time_ij <= t[j][k] + (2 - x[i][j] - x[j][k]) * maxTime);
+        model.addConstr(time_ij >= t[j][k] - ((2 - x[i][j] - x[j][k]) * maxTime), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
+        model.addConstr(time_ij <= t[j][k] + ((2 - x[i][j] - x[j][k]) * maxTime), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
       }
     }
   }
   for (i = 0; i < n; i++)
   {
-    model.addConstr(t[i][n] <= maxTime);
+    model.addConstr(t[i][n] <= maxTime, "max_time");
   }
   cout << "Time constraint done!" << endl;
 }
@@ -600,6 +607,7 @@ void Model::solveCompact(string timeLimit)
     model.set("TimeLimit", timeLimit);
 
     model.update();
+    model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   }
@@ -621,7 +629,6 @@ void Model::solveExp(string timeLimit)
     model.setCallback(&cb);
 
     model.update();
-    // model.computeIIS();
     model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
@@ -759,7 +766,7 @@ void Model::showSolution(string result)
   }
 }
 
-bool Model::check_solution()
+bool Model::check_solution(float max_time, float max_insecticide)
 {
   int n = graph->getN();
 
@@ -768,6 +775,7 @@ bool Model::check_solution()
 
   int start_node = n, i, j, s, target;
   bool find_next = true;
+  float time = 0, insecticide = 0;
 
   vector<bool> visited(n + 1, false);
   vector<int> conn_comp = vector<int>(n + 1, -1);
@@ -803,20 +811,35 @@ bool Model::check_solution()
   {
     for (auto b : graph->nodes[i].second)
     {
-      if (y[i][b].get(GRB_DoubleAttr_X) > 0.5 && !visited[i])
+      if (y[i][b].get(GRB_DoubleAttr_X) > 0.5)
       {
-        cout << "[!] Not visited node!" << endl;
-        return false;
+        time += timeBlock(166.7, b);
+        insecticide += inseticideBlock(70, b);
+        if (!visited[i])
+        {
+          cout << "[!] Not visited node!" << endl;
+          return false;
+        }
       }
     }
     for (auto *arc : graph->arcs[i])
     {
-      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5 && !used_arc[i][arc->getD()])
+      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
       {
-        cout << "[!] Not used arc!" << endl;
-        return false;
+        time += timeArc(arc->getLength(), 333.3);
+        if(!used_arc[i][arc->getD()])
+        {
+          cout << "[!] Not used arc!" << endl;
+          return false;
+        }
       }
     }
+  }
+
+  if(time > max_time || insecticide > max_insecticide) {
+    cout << "T: " << time << " <= " << max_time << ", I: " << insecticide << " <= " << max_insecticide << endl;
+    cout << "[!] Resource limitation error!" << endl;
+    return false;
   }
 
   cout << "[*] Instance ok!!!" << endl;
