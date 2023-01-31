@@ -17,12 +17,13 @@ class Model
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
   vector<vector<GRBVar>> x, y, t;
-  // vector<GRBVar> t;
+  int num_lazy_cuts, num_frac_cuts;
+  float default_vel, spraying_vel, insecticide_ml_min;
 
 public:
   void objectiveFunction();
 
-  Model(Graph *graph);
+  Model(Graph *graph, float default_vel, float spraying_vel, float insecticide_ml_min);
 
   void createVariables();
 
@@ -46,21 +47,21 @@ public:
 
   float timeArc(float distance, float speed);
 
-  float timeBlock(float speed, int block);
+  float timeBlock(int block, float speed);
 
-  float inseticideBlock(float perMeter, int block);
+  float inseticideBlock(int block, float perMeter);
 
   float profitBlock(int block);
 
   void solveCompact(string timeLimit);
 
-  void solveExp(string timeLimit);
+  void solveExp(string timeLimit, bool frac_cut);
 
-  void showSolution(string output);
+  void writeSolution(string result);
 
-  void writeSolution(string instance, int preprocessingTime);
+  bool check_solution(float max_time, float max_insecticide);
 
-  bool check_solution();
+  void WarmStart(float maxTime, float maxInsecticide);
 };
 
 #endif // DPARP_MODEL_H
