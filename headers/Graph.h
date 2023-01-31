@@ -13,6 +13,7 @@ using namespace std;
 class Graph
 {
   int n, m, b, n_nodes;
+  float default_vel = 40, spraying_vel = 10, insecticide_ml_min = 70;
   double m_time;
   graph_t boost_graph;
 
@@ -24,11 +25,11 @@ public:
 
   Graph(string instance, int graph_adapt, int instance_type);
 
-  double timeArc(float distance, float speed);
+  float timeArc(float distance, float speed);
 
-  double timeBlock(float speed, int block);
+  float timeBlock(int block, float speed);
 
-  float inseticideBlock(float perMeter, int block);
+  float inseticideBlock(int block, float perMeter);
 
   int getN() const;
 

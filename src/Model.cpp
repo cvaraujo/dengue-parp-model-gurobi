@@ -286,9 +286,9 @@ void Model::WarmStart(float maxTime, float maxInsecticide)
 
   // Warm start
   vector<pair<int, int>> x, y;
-  double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y);
+  double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y, default_vel, spraying_vel, insecticide_ml_min);
 
-  cout << "Heuristic OF = " << of << endl;
+  cout << "[***] Heuristic value = " << of << endl;
 
   for (int i = 0; i <= graph->getN(); i++)
   {

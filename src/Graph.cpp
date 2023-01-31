@@ -274,27 +274,25 @@ double Graph::getMtime()
   return m_time;
 }
 
-double Graph::timeArc(float distance, float speed)
+float Graph::timeArc(float distance, float speed)
 {
-  return distance > 0 ? distance / speed : 0;
+  return distance > 0 ? distance / ((speed * 1000)/60) : 0;
 }
 
-double Graph::timeBlock(float speed, int block)
+float Graph::timeBlock(int block, float speed)
 {
   float time = 0;
-  for (auto *arc : arcsPerBlock[block])
-  {
+  for (auto *arc : arcsPerBlock[block]) {
     time += timeArc(arc->getLength(), speed);
   }
   return time;
 }
 
-float Graph::inseticideBlock(float perMeter, int block)
+float Graph::inseticideBlock(int block, float perMeter)
 {
   float consumed = 0;
-  for (auto *arc : arcsPerBlock[block])
-  {
-    consumed += timeArc(arc->getLength(), 166.7) * perMeter;
+  for (auto *arc : arcsPerBlock[block]) {
+    consumed += timeArc(arc->getLength(), this->spraying_vel) * perMeter;
   }
   return consumed;
 }
