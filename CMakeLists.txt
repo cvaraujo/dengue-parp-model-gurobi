@@ -3,9 +3,9 @@ project(dparp)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIL_STD -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++0x ")
 
-include_directories(/opt/gurobi1001/linux64/include /opt/boost_1_79_0 /opt/lemon-1.3.1/build /opt/lemon-1.3.1)
+include_directories(/home/carlos-araujo/gurobi1000/linux64/include /home/carlos-araujo/boost_1_81_0 /home/carlos-araujo/lemon-1.3.1)
 
-link_directories(/opt/gurobi1001/linux64/lib /opt/boost_1_79_0 /opt/lemon-1.3.1/build/lemon)
+link_directories(/home/carlos-araujo/gurobi1000/linux64/lib /home/carlos-araujo/boost_1_81_0 /home/carlos-araujo/lemon-1.3.1/lemon)
 
 set(SOURCE_FILES main.cpp headers/Graph.h src/Graph.cpp headers/Include.h src/Arc.cpp headers/Arc.h headers/Model.h src/Model.cpp headers/WarmStart.h src/WarmStart.cpp)
 
