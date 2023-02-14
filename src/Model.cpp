@@ -174,12 +174,13 @@ protected:
 
             if (!need_cut) continue;
 
-            // cout << i << " -> " << n << " = " << mincut_value << endl;
             GRBLinExpr expr = 0;
             has_constr = false;
 
-            for (u = 0; u < n; u++) {
-              if (!usedNode[u] || preflow.minCut(setNodes[u]) != source_side) continue;
+            for (u = 0; u < n; u++)
+            {
+              if (preflow.minCut(setNodes[u]) != source_side)
+                continue;
 
               for (auto *arc : graph->arcs[u]) {
                 v = arc->getD();
