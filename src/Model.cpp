@@ -84,8 +84,8 @@ protected:
 
         if (num_comp == 1) return;
 
-        for (i = 0; i <= n; i++) {
-          if (conn[i].size() <= 1) continue;
+        for (i = 0; i < n; i++) {
+          if (!used_node[i]) continue;
           GRBLinExpr expr = 0;
           bool has_constr = false;
 
@@ -330,7 +330,7 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), timeConstraint(maxTime);
-  inseticideConstraint(maxInsecticide);
+  // inseticideConstraint(maxInsecticide);
 
   if (warm_start) {
     cout << "[!!!] Calling Warm-Start function!" << endl;
@@ -345,7 +345,7 @@ void Model::initModelCompact(float maxTime, float maxInsecticide)
   cout << "[!!!] Creating the model!" << endl;  objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), compactTimeConstraint(maxTime);
-  inseticideConstraint(maxInsecticide);
+  // inseticideConstraint(maxInsecticide);
   cout << "[***] done!" << endl;
 }
 
@@ -546,7 +546,7 @@ void Model::solveCompact(string timeLimit)
     model.set("TimeLimit", timeLimit);
 
     model.update();
-    model.set("OutputFlag", "0");
+    // model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
   } catch (GRBException &ex) {
@@ -565,7 +565,7 @@ void Model::solveExp(string timeLimit, bool frac_cut)
     model.setCallback(&cb);
 
     model.update();
-    model.set("OutputFlag", "0");
+    // model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
 
