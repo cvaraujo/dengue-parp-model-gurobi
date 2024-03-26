@@ -36,15 +36,20 @@ public:
 protected:
   void callback()
   {
-    try {
-      if (where == GRB_CB_MIPSOL) {
+    try
+    {
+      if (where == GRB_CB_MIPSOL)
+      {
         int i, j, s, n = graph->getN();
         vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
         vector<bool> used_node = vector<bool>(n + 1);
 
-        for (i = 0; i <= n; i++) {
-          for (auto *arc : graph->arcs[i]) {
-            if (getSolution(x[i][arc->getD()]) >= 0.1) {
+        for (i = 0; i <= n; i++)
+        {
+          for (auto *arc : graph->arcs[i])
+          {
+            if (getSolution(x[i][arc->getD()]) >= 0.1)
+            {
               g[i].push_back(arc->getD());
               used_node[i] = used_node[arc->getD()] = true;
             }
@@ -55,54 +60,72 @@ protected:
         vector<int> conn_comp = vector<int>(n + 1, -1);
         vector<vector<int>> conn = vector<vector<int>>(n + 1, vector<int>());
 
-        for (i = n; i >= 0; i--) {
-          if (!used_node[i]) continue;
+        for (i = n; i >= 0; i--)
+        {
+          if (!used_node[i])
+            continue;
 
           vector<int> stack;
           stack.push_back(i);
 
-          while (!stack.empty()) {
+          while (!stack.empty())
+          {
             s = stack.back();
             stack.pop_back();
 
-            if (!visited[s]) {
+            if (!visited[s])
+            {
               conn[i].push_back(s);
               conn_comp[s] = i;
               visited[s] = true;
             }
 
             for (auto k : g[s])
-              if (!visited[k]) stack.push_back(k);
+              if (!visited[k])
+                stack.push_back(k);
           }
         }
 
         int num_comp = 0;
-        for (i = n; i >= 0; i--) {
-          if (conn[i].size() > 1) num_comp++;
-          if (num_comp > 1) break;
+        for (i = n; i >= 0; i--)
+        {
+          if (conn[i].size() > 1)
+            num_comp++;
+          if (num_comp > 1)
+            break;
         }
 
-        if (num_comp == 1) return;
+        if (num_comp == 1)
+          return;
 
-        for (i = 0; i < n; i++) {
-          if (!used_node[i]) continue;
+        for (i = 0; i < n; i++)
+        {
+          if (!used_node[i])
+            continue;
           GRBLinExpr expr = 0;
           bool has_constr = false;
 
-          for (auto v : conn[i]) {
-            for (auto *arc : graph->arcs[v]) {
+          for (auto v : conn[i])
+          {
+            for (auto *arc : graph->arcs[v])
+            {
               j = arc->getD();
-              if (conn_comp[j] != i) {
+              if (conn_comp[j] != i)
+              {
                 expr += x[v][j];
                 has_constr = true;
               }
             }
           }
 
-          if (has_constr) {
-            for (auto v : conn[i]) {
-              for (auto b : graph->nodes[v].second) {
-                if (getSolution(y[v][b]) >= 0.1) {
+          if (has_constr)
+          {
+            for (auto v : conn[i])
+            {
+              for (auto b : graph->nodes[v].second)
+              {
+                if (getSolution(y[v][b]) >= 0.1)
+                {
                   addLazy(expr >= y[v][b]);
                   num_lazy_cuts++;
                 }
@@ -113,12 +136,14 @@ protected:
       }
       else if (where == GRB_CB_MIPNODE)
       {
-        if(!frac_cut) return;
+        if (!frac_cut)
+          return;
 
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
         double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
 
-        if (mipStatus == GRB_OPTIMAL) {
+        if (mipStatus == GRB_OPTIMAL)
+        {
           int i, j, u, v, n = graph->getN();
 
           // Basic structures to use Lemon
@@ -129,14 +154,18 @@ protected:
           vector<Arc> setArcs;
 
           // Create the node set
-          for (i = 0; i <= n; i++) setNodes[i] = flow_graph.addNode();
+          for (i = 0; i <= n; i++)
+            setNodes[i] = flow_graph.addNode();
 
           // Create the edge set
-          for (i = 0; i < n; i++) {
-            for (auto *arc : graph->arcs[i]) {
+          for (i = 0; i < n; i++)
+          {
+            for (auto *arc : graph->arcs[i])
+            {
               j = arc->getD();
 
-              if (getNodeRel(x[i][j]) >= 0.1) {
+              if (getNodeRel(x[i][j]) >= 0.1)
+              {
                 setArcs.push_back(flow_graph.addArc(setNodes[i], setNodes[j]));
                 capacity[setArcs[setArcs.size() - 1]] = double(getNodeRel(x[i][j]));
                 usedNode[i] = usedNode[j] = true;
@@ -152,7 +181,8 @@ protected:
           for (i = 0; i < n; i++)
           {
             // If there is no arc using this node, ignore it
-            if (!usedNode[i]) continue;
+            if (!usedNode[i])
+              continue;
 
             // Lemon MaxFlow instance
             Preflow<G, LengthMap> preflow(flow_graph, capacity, setNodes[i], setNodes[n]);
@@ -162,17 +192,20 @@ protected:
             // Create basic variables
             // BoolNodeMap bm(flow_graph);
             source_side = preflow.minCut(setNodes[i]);
-            
+
             // Check the need for cutting
             need_cut = false;
-            for (auto b : graph->nodes[i].second) {
-              if (mincut_value < getNodeRel(y[i][b])) {
+            for (auto b : graph->nodes[i].second)
+            {
+              if (mincut_value < getNodeRel(y[i][b]))
+              {
                 need_cut = true;
                 break;
               }
             }
 
-            if (!need_cut) continue;
+            if (!need_cut)
+              continue;
 
             GRBLinExpr expr = 0;
             has_constr = false;
@@ -182,28 +215,35 @@ protected:
               if (preflow.minCut(setNodes[u]) != source_side)
                 continue;
 
-              for (auto *arc : graph->arcs[u]) {
+              for (auto *arc : graph->arcs[u])
+              {
                 v = arc->getD();
-                if (preflow.minCut(setNodes[v]) != source_side) {
+                if (preflow.minCut(setNodes[v]) != source_side)
+                {
                   expr += x[u][v];
                   has_constr = true;
                 }
               }
             }
 
-            if (has_constr) {
-              for (u = 0; u < n; u++) {
-                if (usedNode[u] && preflow.minCut(setNodes[u])) {
+            if (has_constr)
+            {
+              for (u = 0; u < n; u++)
+              {
+                if (usedNode[u] && preflow.minCut(setNodes[u]))
+                {
                   usedNode[u] = false;
-                  for (auto b : graph->nodes[u].second) {
-                    if (getNodeRel(y[u][b]) > mincut_value) {
+                  for (auto b : graph->nodes[u].second)
+                  {
+                    if (getNodeRel(y[u][b]) > mincut_value)
+                    {
                       addCut(expr >= y[u][b]);
                       num_frac_cuts++;
                     }
                   }
                 }
               }
-            } 
+            }
           }
         }
       }
@@ -222,13 +262,15 @@ protected:
 
 Model::Model(Graph *graph, float default_vel, float spraying_vel, float insecticide_ml_min)
 {
-  if (graph != nullptr) {
+  if (graph != nullptr)
+  {
     this->graph = graph;
     this->default_vel = default_vel;
     this->spraying_vel = spraying_vel;
     this->insecticide_ml_min = insecticide_ml_min;
   }
-  else exit(EXIT_FAILURE);
+  else
+    exit(EXIT_FAILURE);
 }
 
 void Model::createVariables()
@@ -245,8 +287,10 @@ void Model::createVariables()
 
     // X
     char name[40];
-    for (o = 0; o <= n; o++) {
-      for (auto *arc : graph->arcs[o]) {
+    for (o = 0; o <= n; o++)
+    {
+      for (auto *arc : graph->arcs[o])
+      {
         d = arc->getD();
         sprintf(name, "x_%d_%d", o, d);
         x[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
@@ -254,17 +298,21 @@ void Model::createVariables()
     }
 
     // Y
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
       o = graph->nodes[i].first;
-      for (auto bl : graph->nodes[i].second) {
+      for (auto bl : graph->nodes[i].second)
+      {
         sprintf(name, "y_%d_%d", o, bl);
         y[o][bl] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
     }
 
     // T
-    for (o = 0; o <= n; o++) {
-      for (auto *arc : graph->arcs[o]) {
+    for (o = 0; o <= n; o++)
+    {
+      for (auto *arc : graph->arcs[o])
+      {
         d = arc->getD();
         sprintf(name, "t_%d_%d", o, d);
         t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
@@ -332,7 +380,8 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
   maxAttending(), attendingPath(), timeConstraint(maxTime);
   // inseticideConstraint(maxInsecticide);
 
-  if (warm_start) {
+  if (warm_start)
+  {
     cout << "[!!!] Calling Warm-Start function!" << endl;
     this->WarmStart(maxTime, maxInsecticide);
   }
@@ -342,7 +391,8 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
 
 void Model::initModelCompact(float maxTime, float maxInsecticide)
 {
-  cout << "[!!!] Creating the model!" << endl;  objectiveFunction();
+  cout << "[!!!] Creating the model!" << endl;
+  objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), compactTimeConstraint(maxTime);
   // inseticideConstraint(maxInsecticide);
@@ -354,9 +404,11 @@ void Model::objectiveFunction()
   GRBLinExpr objective;
   int i, j, n = graph->getN();
 
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++)
+  {
     j = graph->nodes[i].first;
-    for (auto b : graph->nodes[i].second) {
+    for (auto b : graph->nodes[i].second)
+    {
       objective += (y[j][b] * profitBlock(b));
     }
   }
@@ -371,7 +423,8 @@ void Model::artificialNodes()
   int n = graph->getN();
   GRBLinExpr sink, target;
 
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++)
+  {
     sink += x[n][i];
     target += x[i][n];
   }
@@ -385,16 +438,21 @@ void Model::flowConservation()
 {
   int i, j, n = graph->getN();
 
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++)
+  {
     GRBLinExpr flow_out, flow_in;
-    
-    for (auto *arc : graph->arcs[i]) {
-      if (arc->getD() >= n) continue;
+
+    for (auto *arc : graph->arcs[i])
+    {
+      if (arc->getD() >= n)
+        continue;
       flow_out += x[i][arc->getD()];
     }
 
-    for (j = 0; j < n; j++) {
-      for (auto *arc : graph->arcs[j]) {
+    for (j = 0; j < n; j++)
+    {
+      for (auto *arc : graph->arcs[j])
+      {
         if (arc->getD() == i)
           flow_in += x[j][i];
       }
@@ -412,9 +470,11 @@ void Model::maxAttending()
 {
   int bl, b = graph->getB();
 
-  for (bl = 0; bl < b; bl++) {
+  for (bl = 0; bl < b; bl++)
+  {
     GRBLinExpr maxServ;
-    for (auto i : graph->nodesPerBlock[bl]) {
+    for (auto i : graph->nodesPerBlock[bl])
+    {
       maxServ += y[i][bl];
     }
 
@@ -428,11 +488,14 @@ void Model::attendingPath()
 {
   int j, bl, n = graph->getN(), b = graph->getB();
 
-  for (bl = 0; bl < b; bl++) {
-    for (auto i : graph->nodesPerBlock[bl]) {
+  for (bl = 0; bl < b; bl++)
+  {
+    for (auto i : graph->nodesPerBlock[bl])
+    {
       GRBLinExpr served;
-      for (auto *arc : graph->arcs[i]) served += x[i][arc->getD()];
-      
+      for (auto *arc : graph->arcs[i])
+        served += x[i][arc->getD()];
+
       model.addConstr(served >= y[i][bl], "att_path_" + to_string(i) + "_" + to_string(bl));
     }
   }
@@ -446,14 +509,18 @@ void Model::timeConstraint(float maxTime)
   vector<float> block_time = vector<float>(graph->getB(), -1);
   GRBLinExpr arcTravel, blockTravel;
 
-  for (i = 0; i < n; i++) {
-    for (auto *arc : graph->arcs[i]) {
+  for (i = 0; i < n; i++)
+  {
+    for (auto *arc : graph->arcs[i])
+    {
       j = arc->getD();
       arcTravel += x[i][j] * timeArc(arc->getLength(), this->default_vel);
     }
 
-    for (auto b : graph->nodes[i].second) {
-      if(block_time[b] == -1) block_time[b] = timeBlock(b, this->spraying_vel);
+    for (auto b : graph->nodes[i].second)
+    {
+      if (block_time[b] == -1)
+        block_time[b] = timeBlock(b, this->spraying_vel);
       blockTravel += y[i][b] * block_time[b];
     }
   }
@@ -465,31 +532,39 @@ void Model::timeConstraint(float maxTime)
 void Model::compactTimeConstraint(float maxTime)
 {
   int b, i, j, k, n = graph->getN();
-  vector<float> block_time = vector<float>(graph->getB(), -1);   
+  vector<float> block_time = vector<float>(graph->getB(), -1);
 
-  for (i = 0; i <= n; i++) {
-    if(i < n) model.addConstr(t[n][i] == 0);
+  for (i = 0; i <= n; i++)
+  {
+    if (i < n)
+      model.addConstr(t[n][i] == 0);
 
-    for (auto *arc : graph->arcs[i]) {
+    for (auto *arc : graph->arcs[i])
+    {
       j = arc->getD();
-      if (j >= n) continue;
+      if (j >= n)
+        continue;
 
       GRBLinExpr time_ij = 0;
       time_ij += t[i][j] + (timeArc(arc->getLength(), this->default_vel) * x[i][j]);
-      
-      for(auto b : graph->nodes[j].second) {
-        if(block_time[b] == -1) block_time[b] = timeBlock(b, this->spraying_vel);
+
+      for (auto b : graph->nodes[j].second)
+      {
+        if (block_time[b] == -1)
+          block_time[b] = timeBlock(b, this->spraying_vel);
         time_ij += y[j][b] * block_time[b];
       }
 
-      for (auto *arcl : graph->arcs[j]) {
+      for (auto *arcl : graph->arcs[j])
+      {
         k = arcl->getD();
         model.addConstr(time_ij >= t[j][k] - ((2 - x[i][j] - x[j][k]) * maxTime), "t_geq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
         model.addConstr(time_ij <= t[j][k] + ((2 - x[i][j] - x[j][k]) * maxTime), "t_leq_" + to_string(i) + "_" + to_string(j) + "_" + to_string(k));
       }
     }
   }
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < n; i++)
+  {
     model.addConstr(t[i][n] <= maxTime, "max_time");
   }
   cout << "[***] Constraint: Time limit" << endl;
@@ -500,8 +575,10 @@ void Model::inseticideConstraint(float maxInseticide)
   int i, j, n = graph->getN();
   GRBLinExpr insConsumed;
 
-  for (i = 0; i < n; i++) {
-    for (auto b : graph->nodes[i].second) {
+  for (i = 0; i < n; i++)
+  {
+    for (auto b : graph->nodes[i].second)
+    {
       insConsumed += y[i][b] * inseticideBlock(b, this->insecticide_ml_min);
     }
   }
@@ -512,13 +589,14 @@ void Model::inseticideConstraint(float maxInseticide)
 
 float Model::timeArc(float distance, float speed)
 {
-  return distance > 0 ? distance / ((speed * 1000)/60) : 0;
+  return distance > 0 ? distance / ((speed * 1000) / 60) : 0;
 }
 
 float Model::timeBlock(int block, float speed)
 {
   float time = 0;
-  for (auto *arc : graph->arcsPerBlock[block]) {
+  for (auto *arc : graph->arcsPerBlock[block])
+  {
     time += timeArc(arc->getLength(), speed);
   }
   return time;
@@ -527,7 +605,8 @@ float Model::timeBlock(int block, float speed)
 float Model::inseticideBlock(int block, float perMeter)
 {
   float consumed = 0;
-  for (auto *arc : graph->arcsPerBlock[block]) {
+  for (auto *arc : graph->arcsPerBlock[block])
+  {
     consumed += timeArc(arc->getLength(), this->spraying_vel) * perMeter;
   }
   return consumed;
@@ -536,27 +615,32 @@ float Model::inseticideBlock(int block, float perMeter)
 float Model::profitBlock(int block)
 {
   int i, n = graph->getN(), total = 0;
-  for (auto *arc : graph->arcsPerBlock[block]) total += arc->getCases();
+  for (auto *arc : graph->arcsPerBlock[block])
+    total += arc->getCases();
   return total;
 }
 
 void Model::solveCompact(string timeLimit)
 {
-  try {
+  try
+  {
     model.set("TimeLimit", timeLimit);
 
     model.update();
     // model.set("OutputFlag", "0");
     model.write("model.lp");
     model.optimize();
-  } catch (GRBException &ex) {
+  }
+  catch (GRBException &ex)
+  {
     cout << ex.getMessage() << endl;
   }
 }
 
 void Model::solveExp(string timeLimit, bool frac_cut)
 {
-  try {
+  try
+  {
     model.set("TimeLimit", timeLimit);
 
     model.set(GRB_DoubleParam_Heuristics, 1.0);
@@ -571,14 +655,17 @@ void Model::solveExp(string timeLimit, bool frac_cut)
 
     // Save the number of cuts
     num_lazy_cuts = cb.num_lazy_cuts, num_frac_cuts = cb.num_frac_cuts;
-  } catch (GRBException &ex) {
+  }
+  catch (GRBException &ex)
+  {
     cout << ex.getMessage() << endl;
   }
 }
 
 void Model::writeSolution(string result)
 {
-  try {
+  try
+  {
     ofstream output;
     output.open(result);
 
@@ -595,17 +682,22 @@ void Model::writeSolution(string result)
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
     float timeUsed = 0, insecUsed = 0;
-    for (int i = 0; i < n; i++) {
-      for (auto *arc : graph->arcs[i]) {
+    for (int i = 0; i < n; i++)
+    {
+      for (auto *arc : graph->arcs[i])
+      {
         j = arc->getD();
-        if (x[i][j].get(GRB_DoubleAttr_X) > 0.5) {
+        if (x[i][j].get(GRB_DoubleAttr_X) > 0.5)
+        {
           timeUsed += timeArc(arc->getLength(), this->default_vel);
           output << "X: " << i << " " << j << endl;
         }
       }
 
-      for (auto b : graph->nodes[i].second) {
-        if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
+      for (auto b : graph->nodes[i].second)
+      {
+        if (y[i][b].get(GRB_DoubleAttr_X) > 0.5)
+        {
           timeUsed += timeBlock(b, this->spraying_vel);
           insecUsed += inseticideBlock(b, this->insecticide_ml_min);
           output << "Y: " << i << " " << b << endl;
@@ -617,7 +709,9 @@ void Model::writeSolution(string result)
     output << "Insecticide Used: " << insecUsed << endl;
 
     cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
-  } catch (GRBException &ex) {
+  }
+  catch (GRBException &ex)
+  {
     ofstream output;
     output.open(result);
 
@@ -653,7 +747,8 @@ bool Model::check_solution(float max_time, float max_insecticide)
   deque<int> stack;
   stack.push_back(n);
 
-  while (!stack.empty()) {
+  while (!stack.empty())
+  {
     s = stack.front();
     stack.pop_front();
 
@@ -674,23 +769,30 @@ bool Model::check_solution(float max_time, float max_insecticide)
   }
 
   // Check visiting
-  for (i = 0; i <= n; i++) {
-    for (auto b : graph->nodes[i].second) {
-      if (y[i][b].get(GRB_DoubleAttr_X) > 0.5) {
+  for (i = 0; i <= n; i++)
+  {
+    for (auto b : graph->nodes[i].second)
+    {
+      if (y[i][b].get(GRB_DoubleAttr_X) > 0.5)
+      {
         time += timeBlock(b, this->spraying_vel);
         insecticide += inseticideBlock(b, this->insecticide_ml_min);
-        
-        if (!visited[i]) {
+
+        if (!visited[i])
+        {
           cout << "[!!!] Not visited node!" << endl;
           return false;
         }
       }
     }
 
-    for (auto *arc : graph->arcs[i]) {
-      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5) {
+    for (auto *arc : graph->arcs[i])
+    {
+      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
+      {
         time += timeArc(arc->getLength(), this->default_vel);
-        if(!used_arc[i][arc->getD()]) {
+        if (!used_arc[i][arc->getD()])
+        {
           cout << "[!!!] Not used arc!" << endl;
           return false;
         }
@@ -698,7 +800,8 @@ bool Model::check_solution(float max_time, float max_insecticide)
     }
   }
 
-  if(time > max_time || insecticide > max_insecticide) {
+  if (time > max_time || insecticide > max_insecticide)
+  {
     cout << "T: " << time << " <= " << max_time << ", I: " << insecticide << " <= " << max_insecticide << endl;
     cout << "[!!!] Resource limitation error!" << endl;
     return false;

@@ -21,6 +21,8 @@ set(
     src/WarmStart.cpp
     headers/Scenario.h
     src/Scenario.cpp
+    headers/StochasticModel.h
+    src/StochasticModel.cpp
 )
 
 add_executable(dparp ${sources})

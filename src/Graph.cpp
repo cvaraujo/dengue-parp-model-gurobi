@@ -469,7 +469,7 @@ bool Graph::exist_arc(int i, int j)
 
 void Graph::showGraph()
 {
-  for (int i = 0; i < n; i++)
+  for (int i = 0; i <= n; i++)
     for (auto *arc : arcs[i])
       cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << ", " << arc->getCases() << endl;
 }
