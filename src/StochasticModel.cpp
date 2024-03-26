@@ -6,9 +6,8 @@
 #include "../headers/WarmStart.h"
 
 using namespace lemon;
-using namespace std;
 
-class cyclecallback : public GRBCallback
+class stochasticcallback : public GRBCallback
 {
 
 public:
@@ -24,7 +23,7 @@ public:
   typedef G::NodeMap<bool> BoolNodeMap;
   Graph *graph;
 
-  cyclecallback(Graph *xgraph, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<vector<GRBVar>>> yy, bool frac_cut)
+  stochasticcallback(Graph *xgraph, int xnumvars, vector<vector<vector<GRBVar>>> xx, vector<vector<vector<GRBVar>>> yy, bool frac_cut)
   {
     lastiter = lastnode = 0;
     numvars = xnumvars;
@@ -37,15 +36,13 @@ public:
 protected:
   void callback()
   {
-
     if (where == GRB_CB_MIPSOL)
     {
       try
       {
+        bool is_feasible = true;
         for (int r = 0; r <= graph->getS(); r++)
         {
-          std::cout << "Scenario: " << r << std::endl;
-
           int i, j, s, n = graph->getN();
           vector<vector<int>> g = vector<vector<int>>(n + 2, vector<int>());
           vector<bool> used_node = vector<bool>(n + 1);
@@ -102,12 +99,15 @@ protected:
           }
 
           if (num_comp == 1)
-            return;
+            continue;
+          else
+            is_feasible = false;
 
           for (i = 0; i < n; i++)
           {
             if (!used_node[i])
               continue;
+
             GRBLinExpr expr = 0;
             bool has_constr = false;
 
@@ -140,15 +140,18 @@ protected:
             }
           }
         }
+        if (is_feasible)
+          return;
       }
       catch (GRBException e)
       {
-        std::cout << "[LAZZY] Error number: " << e.getErrorCode() << std::endl;
-        std::cout << e.getMessage() << std::endl;
+        cout << "[LAZZY] Error number: " << e.getErrorCode() << endl;
+        cout << "aaaaaaaaa" << endl;
+        cout << e.getMessage() << endl;
       }
       catch (...)
       {
-        std::cout << "Error during callback" << std::endl;
+        cout << "Error during callback" << endl;
       }
     }
 
@@ -199,7 +202,7 @@ protected:
             double mincut_value;
             bool source_side, has_constr, need_cut;
 
-            // std::cout << "Add Cut" << std::endl;
+            // cout<< "Add Cut" << endl;
             for (i = 0; i < n; i++)
             {
               // If there is no arc using this node, ignore it
@@ -272,12 +275,13 @@ protected:
       }
       catch (GRBException e)
       {
-        std::cout << "[FRAC] Error number: " << e.getErrorCode() << std::endl;
-        std::cout << e.getMessage() << std::endl;
+        cout << "[FRAC] Error number: " << e.getErrorCode() << endl;
+        cout << "aaaaaasassdasdasdasdas" << endl;
+        cout << e.getMessage() << endl;
       }
       catch (...)
       {
-        std::cout << "Error during callback" << std::endl;
+        cout << "Error during callback" << endl;
       }
     }
   }
@@ -327,7 +331,8 @@ void StochasticModel::createVariables()
       for (int i = 0; i < n; i++)
       {
         o = graph->nodes[i].first;
-        for (auto bl : graph->nodes[i].second)
+        for (int bl = 0; bl < graph->getB(); bl++)
+        // for (auto bl : graph->nodes[i].second)
         {
           sprintf(name, "y_%d_%d_%d", o, bl, r);
           y[o][bl][r] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
@@ -352,13 +357,14 @@ void StochasticModel::createVariables()
         z[bl][r] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
       }
     }
+
     model.update();
-    std::cout << "Create variables" << std::endl;
+    cout << "Create variables" << endl;
   }
   catch (GRBException &ex)
   {
-    std::cout << ex.getMessage() << std::endl;
-    std::cout << ex.getErrorCode() << std::endl;
+    cout << ex.getMessage() << endl;
+    cout << ex.getErrorCode() << endl;
     exit(EXIT_FAILURE);
   }
 }
@@ -371,7 +377,7 @@ void StochasticModel::WarmStart(float maxTime, float maxInsecticide)
   vector<pair<int, int>> x, y;
   double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y, default_vel, spraying_vel, insecticide_ml_min);
 
-  std::cout << "[***] Heuristic value = " << of << std::endl;
+  cout << "[***] Heuristic value = " << of << endl;
 
   for (int r = 0; r <= graph->getS(); r++)
   {
@@ -411,31 +417,34 @@ void StochasticModel::WarmStart(float maxTime, float maxInsecticide)
 
 void StochasticModel::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
 {
-  std::cout << "[!!!] Creating the model!" << std::endl;
+  cout << "[!!!] Creating the model!" << endl;
   objectiveFunction();
-  zValue(), artificialNodes(), flowConservation();
+  zValue();
+  artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), timeConstraint(maxTime);
   inseticideConstraint(maxInsecticide);
 
   if (warm_start)
   {
-    std::cout << "[!!!] Calling Warm-Start function!" << std::endl;
+    cout << "[!!!] Calling Warm-Start function!" << endl;
     this->WarmStart(maxTime, maxInsecticide);
   }
-
-  std::cout << "[***] done!" << std::endl;
+  model.update();
+  cout << "[***] done!" << endl;
 }
 
 void StochasticModel::initModelCompact(float maxTime, float maxInsecticide)
 {
-  std::cout << "[!!!] Creating the model!" << std::endl;
+  cout << "[!!!] Creating the model!" << endl;
   objectiveFunction();
   zValue(), artificialNodes(), flowConservation();
   maxAttending();
   compactTimeConstraint(maxTime);
   attendingPath();
   inseticideConstraint(maxInsecticide);
-  std::cout << "[***] done!" << std::endl;
+
+  model.update();
+  cout << "[***] done!" << endl;
 }
 
 void StochasticModel::objectiveFunction()
@@ -471,7 +480,7 @@ void StochasticModel::objectiveFunction()
 
   model.setObjective(objective, GRB_MAXIMIZE);
   model.update();
-  std::cout << "[***] Obj. Function: Maximize profit" << std::endl;
+  cout << "[***] Obj. Function: Maximize profit" << endl;
 }
 
 void StochasticModel::zValue()
@@ -493,7 +502,7 @@ void StochasticModel::zValue()
     }
   }
   model.update();
-  std::cout << "[***] Contraint: z value" << std::endl;
+  cout << "[***] Contraint: z value" << endl;
 }
 
 void StochasticModel::artificialNodes()
@@ -512,7 +521,7 @@ void StochasticModel::artificialNodes()
     model.addConstr(sink == 1, "sink_constraint_" + to_string(s));
     model.addConstr(target == 1, "target_constraint_" + to_string(s));
   }
-  std::cout << "[***] Contraint: dummy depot" << std::endl;
+  cout << "[***] Contraint: dummy depot" << endl;
 }
 
 void StochasticModel::flowConservation()
@@ -547,7 +556,7 @@ void StochasticModel::flowConservation()
     }
   }
 
-  std::cout << "[***] Constraint: Flow conservation" << std::endl;
+  cout << "[***] Constraint: Flow conservation" << endl;
 }
 
 void StochasticModel::maxAttending()
@@ -567,7 +576,7 @@ void StochasticModel::maxAttending()
       model.addConstr(maxServ <= 1, "max_service_block_" + to_string(bl));
     }
   }
-  std::cout << "[***] Constraint: Serve each block at most once" << std::endl;
+  cout << "[***] Constraint: Serve each block at most once" << endl;
 }
 
 void StochasticModel::attendingPath()
@@ -588,7 +597,7 @@ void StochasticModel::attendingPath()
     }
   }
 
-  std::cout << "[***] Constraint: Include node in path" << std::endl;
+  cout << "[***] Constraint: Include node in path" << endl;
 }
 
 void StochasticModel::timeConstraint(float maxTime)
@@ -617,7 +626,7 @@ void StochasticModel::timeConstraint(float maxTime)
     model.addConstr(arcTravel + blockTravel <= maxTime, "max_time");
   }
 
-  std::cout << "[***] Constraint: time limit" << std::endl;
+  cout << "[***] Constraint: time limit" << endl;
 }
 
 void StochasticModel::compactTimeConstraint(float maxTime)
@@ -661,7 +670,7 @@ void StochasticModel::compactTimeConstraint(float maxTime)
       model.addConstr(t[i][n][s] <= maxTime, "max_time");
     }
   }
-  std::cout << "[***] Constraint: Time limit" << std::endl;
+  cout << "[***] Constraint: Time limit" << endl;
 }
 
 void StochasticModel::inseticideConstraint(float maxInseticide)
@@ -681,7 +690,7 @@ void StochasticModel::inseticideConstraint(float maxInseticide)
     model.addConstr(insConsumed <= maxInseticide, "max_inseticide");
   }
 
-  std::cout << "[***] Constraint: Insecticide limit" << std::endl;
+  cout << "[***] Constraint: Insecticide limit" << endl;
 }
 
 float StochasticModel::timeArc(float distance, float speed)
@@ -730,7 +739,7 @@ void StochasticModel::solveCompact(string timeLimit)
   }
   catch (GRBException &ex)
   {
-    std::cout << ex.getMessage() << std::endl;
+    cout << ex.getMessage() << endl;
   }
 }
 
@@ -739,14 +748,15 @@ void StochasticModel::solveExp(string timeLimit, bool frac_cut)
   try
   {
     model.set("TimeLimit", timeLimit);
-
     model.set(GRB_DoubleParam_Heuristics, 1.0);
     model.set(GRB_IntParam_LazyConstraints, 1);
-    cyclecallback cb = cyclecallback(graph, graph->getN(), x, y, frac_cut);
+
+    stochasticcallback cb = stochasticcallback(graph, graph->getN(), this->x, this->y, frac_cut);
     model.setCallback(&cb);
 
     model.update();
     // model.set("OutputFlag", "0");
+
     model.write("model.lp");
     model.optimize();
 
@@ -755,7 +765,8 @@ void StochasticModel::solveExp(string timeLimit, bool frac_cut)
   }
   catch (GRBException &ex)
   {
-    std::cout << ex.getMessage() << std::endl;
+    cout << "Solve error!" << endl;
+    cout << ex.getMessage() << endl;
   }
 }
 
@@ -768,20 +779,20 @@ void StochasticModel::writeSolution(string result)
 
     int j, n = graph->getN(), b = graph->getB();
 
-    output << "Nodes: " << n << std::endl;
-    output << "Arcs: " << graph->getM() << std::endl;
-    output << "Blocks: " << b << std::endl;
-    output << "LB: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
-    output << "UB: " << model.get(GRB_DoubleAttr_ObjBound) << std::endl;
-    output << "Gurobi Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << std::endl;
-    output << "LAZY_CUTS: " << this->num_lazy_cuts << std::endl;
-    output << "FRAC_CUTS: " << this->num_frac_cuts << std::endl;
-    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << std::endl;
+    output << "Nodes: " << n << endl;
+    output << "Arcs: " << graph->getM() << endl;
+    output << "Blocks: " << b << endl;
+    output << "LB: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+    output << "UB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;
+    output << "Gurobi Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
+    output << "LAZY_CUTS: " << this->num_lazy_cuts << endl;
+    output << "FRAC_CUTS: " << this->num_frac_cuts << endl;
+    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
     for (int r = 0; r <= graph->getS(); r++)
     {
-      std::cout << "Scenario: " << r << std::endl;
-      output << "S: " << r << std::endl;
+      cout << "Scenario: " << r << endl;
+      output << "S: " << r << endl;
 
       float timeUsed = 0, insecUsed = 0;
       for (int i = 0; i <= n; i++)
@@ -792,7 +803,7 @@ void StochasticModel::writeSolution(string result)
           if (x[i][j][r].get(GRB_DoubleAttr_X) > 0.5)
           {
             timeUsed += timeArc(arc->getLength(), this->default_vel);
-            output << "X: " << i << " " << j << std::endl;
+            output << "X: " << i << " " << j << endl;
           }
         }
       }
@@ -805,7 +816,7 @@ void StochasticModel::writeSolution(string result)
           {
             timeUsed += timeBlock(b, this->spraying_vel);
             insecUsed += inseticideBlock(b, this->insecticide_ml_min);
-            output << "Y: " << b << " " << r << std::endl;
+            output << "Y: " << b << " " << r << endl;
           }
         }
       }
@@ -814,14 +825,14 @@ void StochasticModel::writeSolution(string result)
       {
         if (z[b][r].get(GRB_DoubleAttr_X) > 0.0)
         {
-          output << "Z: " << b << " " << r << " = " << z[b][r].get(GRB_DoubleAttr_X) << std::endl;
+          output << "Z: " << b << " " << r << " = " << z[b][r].get(GRB_DoubleAttr_X) << endl;
         }
       }
 
-      output << "Route Time: " << timeUsed << std::endl;
-      output << "Insecticide Used: " << insecUsed << std::endl;
+      output << "Route Time: " << timeUsed << endl;
+      output << "Insecticide Used: " << insecUsed << endl;
 
-      std::cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
+      cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
     }
   }
   catch (GRBException &ex)
@@ -830,15 +841,15 @@ void StochasticModel::writeSolution(string result)
     output.open(result);
 
     int n = graph->getN(), b = graph->getB(), j;
-    output << "Nodes: " << n << std::endl;
-    output << "Arcs: " << graph->getM() << std::endl;
-    output << "Blocks: " << b << std::endl;
-    output << "LB: 0" << std::endl;
-    output << "UB: " << model.get(GRB_DoubleAttr_ObjBound) << std::endl;
-    output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << std::endl;
-    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << std::endl;
-    std::cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << std::endl;
-    std::cout << ex.getMessage() << std::endl;
+    output << "Nodes: " << n << endl;
+    output << "Arcs: " << graph->getM() << endl;
+    output << "Blocks: " << b << endl;
+    output << "LB: 0" << endl;
+    output << "UB: " << model.get(GRB_DoubleAttr_ObjBound) << endl;
+    output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
+    output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
+    cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
+    cout << ex.getMessage() << endl;
   }
 }
 
@@ -896,7 +907,7 @@ bool StochasticModel::check_solution(float max_time, float max_insecticide)
 
           if (!visited[i])
           {
-            std::cout << "[!!!] Not visited node!" << std::endl;
+            cout << "[!!!] Not visited node!" << endl;
             return false;
           }
         }
@@ -909,7 +920,7 @@ bool StochasticModel::check_solution(float max_time, float max_insecticide)
           time += timeArc(arc->getLength(), this->default_vel);
           if (!used_arc[i][arc->getD()])
           {
-            std::cout << "[!!!] Not used arc!" << std::endl;
+            cout << "[!!!] Not used arc!" << endl;
             return false;
           }
         }
@@ -918,12 +929,12 @@ bool StochasticModel::check_solution(float max_time, float max_insecticide)
 
     if (time > max_time || insecticide > max_insecticide)
     {
-      std::cout << "T: " << time << " <= " << max_time << ", I: " << insecticide << " <= " << max_insecticide << std::endl;
-      std::cout << "[!!!] Resource limitation error!" << std::endl;
+      cout << "T: " << time << " <= " << max_time << ", I: " << insecticide << " <= " << max_insecticide << endl;
+      cout << "[!!!] Resource limitation error!" << endl;
       return false;
     }
   }
 
-  std::cout << "[***] Instance ok!!!" << std::endl;
+  cout << "[***] Instance ok!!!" << endl;
   return true;
 }
