@@ -13,6 +13,12 @@ Graph::Graph(string instance, int graph_adapt, int instance_type)
     load_instance(instance, graph_adapt);
 }
 
+Graph::Graph(string instance, string scenarios, int graph_adapt)
+{
+  load_stochastic_instance(instance, graph_adapt);
+  load_scenarios_instance(scenarios);
+}
+
 void Graph::loadSBRPInstance(string instance, int graph_adapt)
 {
   int block, cases, i, j, k;
@@ -269,6 +275,154 @@ void Graph::load_instance(string instance, int graph_adapt)
   cout << "Load graph successfully" << endl;
 }
 
+void Graph::load_stochastic_instance(string instance, int graph_adapt)
+{
+  int block, cases, i, j, k;
+  float length;
+  string token, aux, x, y;
+  ifstream file;
+  vector<string> blcs;
+
+  file.open(instance, fstream::in);
+
+  file >> Graph::n >> Graph::m >> Graph::b;
+
+  if (graph_adapt == 3)
+  {
+    arcs = vector<vector<Arc *>>(n + m + 1, vector<Arc *>());
+  }
+  else
+  {
+    arcs = vector<vector<Arc *>>(n + 1, vector<Arc *>());
+  }
+
+  nodesPerBlock = vector<set<int>>(b, set<int>());
+  arcsPerBlock = vector<vector<Arc *>>(b, vector<Arc *>());
+  cases_per_block = vector<int>(b);
+  set<int> blocks_node;
+
+  for (i = 0; i < n; i++)
+  {
+    file >> token >> j >> x >> y >> aux;
+    boost::split(blcs, aux, boost::is_any_of(","));
+    blocks_node = set<int>();
+
+    for (auto s : blcs)
+    {
+      if (s == "-1")
+        break;
+      k = stoi(s);
+
+      blocks_node.insert(k);
+      nodesPerBlock[k].insert(j);
+    }
+    nodes.push_back(make_pair(j, blocks_node));
+  }
+
+  vector<double> bigm_time;
+  double new_length;
+  int new_num_cases;
+  for (k = 0; k < m; k++)
+  {
+    file >> token >> i >> j >> length >> block;
+    file.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    if (graph_adapt == 3)
+    {
+      blocks_node = set<int>();
+
+      if (block != -1)
+      {
+        blocks_node.insert(block);
+        nodesPerBlock[block].insert(n);
+      }
+
+      nodes.push_back(make_pair(n, blocks_node));
+
+      new_length = length / 2;
+      new_num_cases = int(cases / 2);
+
+      Arc *arc = new Arc(i, n, new_length, block, 0);
+      Arc *sec_arc = new Arc(n, j, new_length, block, 0);
+
+      arcs[i].push_back(arc);
+      arcs[n].push_back(sec_arc);
+
+      if (block != -1)
+      {
+        arcsPerBlock[block].push_back(arc);
+        arcsPerBlock[block].push_back(sec_arc);
+      }
+      n++;
+    }
+    else
+    {
+      Arc *arc = new Arc(i, j, length, block, cases);
+
+      arcs[i].push_back(arc);
+      if (block != -1)
+        arcsPerBlock[block].push_back(arc);
+    }
+  }
+
+  for (k = 0; k < b; k++)
+  {
+    file >> token >> i >> j;
+    file.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    cases_per_block[i] = j;
+  }
+
+  if (graph_adapt == 1 || graph_adapt == 3)
+  {
+    this->fillMissingArcs();
+  }
+  else if (graph_adapt == 2)
+  {
+    this->fillCompleteDigraph();
+  }
+
+  nodes.push_back(make_pair(n, set<int>()));
+
+  for (i = 0; i < n; i++)
+  {
+    arcs[n].push_back(new Arc(n, i, 0, -1, 0));
+    arcs[i].push_back(new Arc(i, n, 0, -1, 0));
+  }
+
+  cout << "Load graph successfully" << endl;
+}
+
+void Graph::load_scenarios_instance(string instance)
+{
+  string token;
+  ifstream file;
+  int i, block, cases;
+  float prob;
+
+  file.open(instance, fstream::in);
+  file >> Graph::s;
+  Graph::scenarios = vector<Scenario>(Graph::s);
+
+  while (!file.eof())
+  {
+    file >> token;
+
+    if (token == "P")
+    {
+      file >> i >> prob;
+      vector<int> cases_per_block = vector<int>(Graph::b, 0);
+      Scenario scn(prob, cases_per_block);
+      Graph::scenarios[i] = scn;
+    }
+    else if (token == "B")
+    {
+      file >> i >> block >> cases;
+      Graph::scenarios[i].SetCases(block, cases);
+    }
+  }
+}
+
 double Graph::getMtime()
 {
   return m_time;
@@ -276,13 +430,14 @@ double Graph::getMtime()
 
 float Graph::timeArc(float distance, float speed)
 {
-  return distance > 0 ? distance / ((speed * 1000)/60) : 0;
+  return distance > 0 ? distance / ((speed * 1000) / 60) : 0;
 }
 
 float Graph::timeBlock(int block, float speed)
 {
   float time = 0;
-  for (auto *arc : arcsPerBlock[block]) {
+  for (auto *arc : arcsPerBlock[block])
+  {
     time += timeArc(arc->getLength(), speed);
   }
   return time;
@@ -291,7 +446,8 @@ float Graph::timeBlock(int block, float speed)
 float Graph::inseticideBlock(int block, float perMeter)
 {
   float consumed = 0;
-  for (auto *arc : arcsPerBlock[block]) {
+  for (auto *arc : arcsPerBlock[block])
+  {
     consumed += timeArc(arc->getLength(), this->spraying_vel) * perMeter;
   }
   return consumed;
@@ -316,6 +472,19 @@ void Graph::showGraph()
   for (int i = 0; i < n; i++)
     for (auto *arc : arcs[i])
       cout << "[" << i << ", " << arc->getD() << "] - " << arc->getLength() << ", " << arc->getBlock() << ", " << arc->getCases() << endl;
+}
+
+void Graph::showScenarios()
+{
+
+  for (auto scenario : this->scenarios)
+  {
+    cout << "Probability: " << scenario.probability << endl;
+    for (int bl = 0; bl < this->b; bl++)
+    {
+      cout << "B" << bl << " -> " << scenario.cases_per_block[bl] << endl;
+    }
+  }
 }
 
 void Graph::fillMissingArcs()
@@ -427,6 +596,11 @@ int Graph::getM() const
 int Graph::getB() const
 {
   return b;
+}
+
+int Graph::getS() const
+{
+  return s;
 }
 
 int Graph::getRoot() const
