@@ -98,10 +98,11 @@ protected:
         if (num_comp == 1)
           return;
 
-        for (i = 0; i < n; i++)
+        for (i = 0; i <= n; i++)
         {
           if (!used_node[i])
             continue;
+
           GRBLinExpr expr = 0;
           bool has_constr = false;
 
@@ -140,12 +141,11 @@ protected:
           return;
 
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
-        double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
+        // double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
 
         if (mipStatus == GRB_OPTIMAL)
         {
           int i, j, u, v, n = graph->getN();
-
           // Basic structures to use Lemon
           G flow_graph;
           LengthMap capacity(flow_graph);
@@ -172,7 +172,6 @@ protected:
               }
             }
           }
-
           // Init necessary structures
           double mincut_value;
           bool source_side, has_constr, need_cut;
@@ -252,6 +251,7 @@ protected:
     {
       cout << "Error number: " << e.getErrorCode() << endl;
       cout << e.getMessage() << endl;
+      getchar();
     }
     catch (...)
     {
@@ -318,6 +318,7 @@ void Model::createVariables()
         t[o][d] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
       }
     }
+
     model.update();
     cout << "Create variables" << endl;
   }
@@ -378,7 +379,7 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), timeConstraint(maxTime);
-  // inseticideConstraint(maxInsecticide);
+  inseticideConstraint(maxInsecticide);
 
   if (warm_start)
   {
@@ -389,13 +390,20 @@ void Model::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
   cout << "[***] done!" << endl;
 }
 
-void Model::initModelCompact(float maxTime, float maxInsecticide)
+void Model::initModelCompact(float maxTime, float maxInsecticide, bool warm_start)
 {
   cout << "[!!!] Creating the model!" << endl;
   objectiveFunction();
   artificialNodes(), flowConservation();
   maxAttending(), attendingPath(), compactTimeConstraint(maxTime);
-  // inseticideConstraint(maxInsecticide);
+  inseticideConstraint(maxInsecticide);
+
+  if (warm_start)
+  {
+    cout << "[!!!] Calling Warm-Start function!" << endl;
+    this->WarmStart(maxTime, maxInsecticide);
+  }
+
   cout << "[***] done!" << endl;
 }
 
@@ -409,7 +417,7 @@ void Model::objectiveFunction()
     j = graph->nodes[i].first;
     for (auto b : graph->nodes[i].second)
     {
-      objective += (y[j][b] * profitBlock(b));
+      objective += (y[j][b] * graph->cases_per_block[b]);
     }
   }
 
@@ -682,7 +690,7 @@ void Model::writeSolution(string result)
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
     float timeUsed = 0, insecUsed = 0;
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i <= n; i++)
     {
       for (auto *arc : graph->arcs[i])
       {
@@ -693,7 +701,10 @@ void Model::writeSolution(string result)
           output << "X: " << i << " " << j << endl;
         }
       }
+    }
 
+    for (int i = 0; i < n; i++)
+    {
       for (auto b : graph->nodes[i].second)
       {
         if (y[i][b].get(GRB_DoubleAttr_X) > 0.5)
@@ -788,7 +799,7 @@ bool Model::check_solution(float max_time, float max_insecticide)
 
     for (auto *arc : graph->arcs[i])
     {
-      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
+      if (x[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.8)
       {
         time += timeArc(arc->getLength(), this->default_vel);
         if (!used_arc[i][arc->getD()])

@@ -29,7 +29,7 @@ public:
 
   void initModelExp(float maxTime, float maxInsecticide, bool warm_start);
 
-  void initModelCompact(float maxTime, float maxInsecticide);
+  void initModelCompact(float maxTime, float maxInsecticide, bool warm_start);
 
   void artificialNodes();
 

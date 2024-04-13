@@ -2,8 +2,8 @@
 // Created by carlos on 06/07/21.
 //
 
-#ifndef DPARP_MODEL_H
-#define DPARP_MODEL_H
+#ifndef DPARP_STOCHASTIC_MODEL_H
+#define DPARP_STOCHASTIC_MODEL_H
 
 #include "Include.h"
 #include "Graph.h"

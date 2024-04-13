@@ -4,16 +4,15 @@ import subprocess
 
 from pathlib import Path
 
-
-folders = ["notified-alto-santo", "notified-limoeiro"]
+folders = ["cases-alto-santo", "cases-limoeiro"]
 algorithms = ['e']
 commands = []
 folders_outp = [
             "results-compact",
-            "results-exp-frac-cut"
+            # "results-exp-frac-cut"
             #"results-exp-default-warm-s",
-            #"results-exp-frac-cut-warm-s",
-            #"results-mtz",
+            "results-exp-frac-cut-warm-s",
+            "results-mtz",
         ]
 
 for direc in folders_outp:
@@ -27,8 +26,8 @@ for f in folders:
             #commands.append("./dparp " + f + "/" + inst + " " + "results-exp-frac-cut/" + inst + " " + alg + " 120 8000 0 0 0 1")
             commands.append("./dparp " + f + "/" + inst + " " + "results-compact/" + inst + " " + "c" + " 120 8000 0 0 0 1")
             #commands.append("./dparp " + f + "/" + inst + " " + "results-exp-default-warm-s/" + inst + " " + alg + " 120 8000 1 0 1 0")
-            #commands.append("./dparp " + f + "/" + inst + " " + "results-exp-frac-cut-warm-s/" + inst + " " + alg + " 120 8000 1 0 1 1")
-            #commands.append("./dparp " + f + "/" + inst + " " + "results-mtz/" + inst + " c 120 8000 1 0 0 0")
+            commands.append("./dparp " + f + "/" + inst + " " + "results-exp-frac-cut-warm-s/" + inst + " " + alg + " 120 8000 1 0 1 1")
+            commands.append("./dparp " + f + "/" + inst + " " + "results-mtz/" + inst + " c 120 8000 1 0 0 0")
 
 for c in commands:
     print(c)

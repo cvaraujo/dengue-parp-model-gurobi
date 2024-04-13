@@ -179,16 +179,13 @@ void Graph::load_instance(string instance, int graph_adapt)
   file >> Graph::n >> Graph::m >> Graph::b;
 
   if (graph_adapt == 3)
-  {
     arcs = vector<vector<Arc *>>(n + m + 1, vector<Arc *>());
-  }
   else
-  {
     arcs = vector<vector<Arc *>>(n + 1, vector<Arc *>());
-  }
 
   nodesPerBlock = vector<set<int>>(b, set<int>());
   arcsPerBlock = vector<vector<Arc *>>(b, vector<Arc *>());
+  cases_per_block = vector<int>(b, 0);
   set<int> blocks_node;
 
   for (i = 0; i < n; i++)
@@ -214,7 +211,7 @@ void Graph::load_instance(string instance, int graph_adapt)
   int new_num_cases;
   for (k = 0; k < m; k++)
   {
-    file >> token >> i >> j >> length >> block >> cases;
+    file >> token >> i >> j >> length >> block;
     file.ignore(numeric_limits<streamsize>::max(), '\n');
 
     if (graph_adapt == 3)
@@ -232,8 +229,8 @@ void Graph::load_instance(string instance, int graph_adapt)
       new_length = length / 2;
       new_num_cases = int(cases / 2);
 
-      Arc *arc = new Arc(i, n, new_length, block, new_num_cases);
-      Arc *sec_arc = new Arc(n, j, new_length, block, cases - new_num_cases);
+      Arc *arc = new Arc(i, n, new_length, block, 0);
+      Arc *sec_arc = new Arc(n, j, new_length, block, 0);
 
       arcs[i].push_back(arc);
       arcs[n].push_back(sec_arc);
@@ -252,6 +249,17 @@ void Graph::load_instance(string instance, int graph_adapt)
       arcs[i].push_back(arc);
       if (block != -1)
         arcsPerBlock[block].push_back(arc);
+    }
+  }
+
+  while (!file.eof())
+  {
+    file >> token;
+
+    if (token == "B")
+    {
+      file >> i >> j;
+      cases_per_block[i] = j;
     }
   }
 
