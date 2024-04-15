@@ -5,8 +5,9 @@
 #include <chrono>
 #include "headers/StochasticModel.h"
 
-void stochastic(char *argv[])
+void stochastic(const char *argv[])
 {
+  cout << "[!!!] Stochastic Model" << endl;
   stringstream convTime(argv[5]), convInsec(argv[6]), convGraph(argv[7]),
       convInstanceType(argv[8]), convWarmStart(argv[9]), convFracCut(argv[10]);
 
@@ -25,7 +26,7 @@ void stochastic(char *argv[])
 
   // Create Graph
   cout << "Loading the graph!" << endl;
-  Graph *g = new Graph(argv[1], graph_adaptation, instance_type);
+  Graph *g = new Graph(argv[1], argv[2], graph_adaptation);
 
   cout << "Instantiating Gurobi model!" << endl;
   StochasticModel *model = new StochasticModel(g, default_vel, spraying_vel, insecticide_ml_min);
@@ -38,7 +39,7 @@ void stochastic(char *argv[])
   }
   else
   {
-    model->initModelCompact(time, insecticide);
+    model->initModelCompact(time, insecticide, warm_start);
     model->solveCompact("3600");
   }
 
@@ -97,7 +98,7 @@ void deterministic(const char *argv[])
 
 int main(int argc, const char *argv[])
 {
-  deterministic(argv);
+  stochastic(argv);
 
   return 0;
 }

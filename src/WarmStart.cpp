@@ -5,14 +5,22 @@
 #include "../headers/WarmStart.h"
 #include "set"
 
-void WarmStart::blocks_profit(Graph *graph, vector<pair<int, float>> &profits)
+void WarmStart::blocks_profit(Graph *graph, vector<pair<int, float>> &profits, double alpha)
 {
     int k, b = graph->getB();
-    float total;
+    double profit;
     profits = vector<pair<int, float>>();
+    vector<int> cases_scn_0 = graph->cases_per_block;
+    vector<Scenario> scenarios = graph->scenarios;
 
     for (k = 0; k < b; k++)
-        profits.push_back(make_pair(k, graph->cases_per_block[k]));
+    {
+        profit = cases_scn_0[k];
+        for (auto scn : scenarios)
+            profit += (scn.probability * scn.cases_per_block[k]);
+
+        profits.push_back(make_pair(k, profit));
+    }
 }
 
 bool WarmStart::attend_max_blocks(Graph *graph, int j, float &available_time,
@@ -114,7 +122,7 @@ int WarmStart::bfs_first_profit(Graph *graph, int i, float &available_time,
 }
 
 double WarmStart::compute_solution(Graph *graph, int max_time, float max_insecticide, vector<pair<int, int>> &x, vector<pair<int, int>> &y,
-                                   float default_vel, float spraying_vel, float insecticide_ml_min)
+                                   float default_vel, float spraying_vel, float insecticide_ml_min, double alpha)
 {
     // Initial infos
     int i, j, n = graph->getN();
@@ -128,7 +136,7 @@ double WarmStart::compute_solution(Graph *graph, int max_time, float max_insecti
 
     // Get the blocks profit.
     vector<pair<int, float>> profits;
-    WarmStart::blocks_profit(graph, profits);
+    WarmStart::blocks_profit(graph, profits, alpha);
 
     // Compute node profit
     vector<float> node_profit = vector<float>(n + 1, 0);

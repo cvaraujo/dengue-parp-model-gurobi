@@ -19,7 +19,7 @@ class StochasticModel
   vector<vector<vector<GRBVar>>> x, y, t;
   vector<vector<GRBVar>> z;
   int num_lazy_cuts, num_frac_cuts;
-  float default_vel, spraying_vel, insecticide_ml_min, alpha = 1.0;
+  float default_vel, spraying_vel, insecticide_ml_min, alpha = 0.8;
 
 public:
   void objectiveFunction();
@@ -30,7 +30,7 @@ public:
 
   void initModelExp(float maxTime, float maxInsecticide, bool warm_start);
 
-  void initModelCompact(float maxTime, float maxInsecticide);
+  void initModelCompact(float maxTime, float maxInsecticide, bool warm_start);
 
   void zValue();
 
@@ -64,7 +64,7 @@ public:
 
   bool check_solution(float max_time, float max_insecticide);
 
-  void WarmStart(float maxTime, float maxInsecticide);
+  void WarmStart(float maxTime, float maxInsecticide, double alpha);
 };
 
 #endif // DPARP_MODEL_H

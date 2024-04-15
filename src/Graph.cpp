@@ -376,7 +376,6 @@ void Graph::load_stochastic_instance(string instance, int graph_adapt)
   for (k = 0; k < b; k++)
   {
     file >> token >> i >> j;
-    file.ignore(numeric_limits<streamsize>::max(), '\n');
 
     cases_per_block[i] = j;
   }

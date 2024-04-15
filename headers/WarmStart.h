@@ -12,7 +12,7 @@ private:
     float default_vel = 40, spraying_vel = 10, insecticide_ml_min = 70;
     vector<pair<int, int>> solution;
 
-    static void blocks_profit(Graph *graph, vector<pair<int, float>> &profits);
+    static void blocks_profit(Graph *graph, vector<pair<int, float>> &profits, double alpha);
 
     static bool attend_max_blocks(Graph *graph, int j, float &available_time,
                                   float max_time, float &available_insecticide, float max_insecticide,
@@ -26,7 +26,7 @@ private:
 
 public:
     static double compute_solution(Graph *graph, int max_time, float max_insecticide, vector<pair<int, int>> &x, vector<pair<int, int>> &y,
-                                    float default_vel, float spraying_vel, float insecticide_ml_min);
+                                   float default_vel, float spraying_vel, float insecticide_ml_min, double alpha);
 };
 
 #endif // MRP_WARMSTART_H

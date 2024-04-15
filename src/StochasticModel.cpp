@@ -163,7 +163,6 @@ protected:
           return;
 
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
-        double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
 
         if (mipStatus == GRB_OPTIMAL)
         {
@@ -276,7 +275,6 @@ protected:
       catch (GRBException e)
       {
         cout << "[FRAC] Error number: " << e.getErrorCode() << endl;
-        cout << "aaaaaasassdasdasdasdas" << endl;
         cout << e.getMessage() << endl;
       }
       catch (...)
@@ -369,13 +367,13 @@ void StochasticModel::createVariables()
   }
 }
 
-void StochasticModel::WarmStart(float maxTime, float maxInsecticide)
+void StochasticModel::WarmStart(float maxTime, float maxInsecticide, double alpha)
 {
   int i, j;
 
   // Warm start
   vector<pair<int, int>> x, y;
-  double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y, default_vel, spraying_vel, insecticide_ml_min);
+  double of = WarmStart::compute_solution(graph, maxTime, maxInsecticide, x, y, default_vel, spraying_vel, insecticide_ml_min, alpha);
 
   cout << "[***] Heuristic value = " << of << endl;
 
@@ -403,16 +401,13 @@ void StochasticModel::WarmStart(float maxTime, float maxInsecticide)
       }
     }
 
-    model.update();
-
     for (auto pair : y)
     {
       i = pair.first, j = pair.second;
       this->y[i][j][r].set(GRB_DoubleAttr_Start, 1.0);
     }
-
-    model.update();
   }
+  model.update();
 }
 
 void StochasticModel::initModelExp(float maxTime, float maxInsecticide, bool warm_start)
@@ -427,13 +422,13 @@ void StochasticModel::initModelExp(float maxTime, float maxInsecticide, bool war
   if (warm_start)
   {
     cout << "[!!!] Calling Warm-Start function!" << endl;
-    this->WarmStart(maxTime, maxInsecticide);
+    this->WarmStart(maxTime, maxInsecticide, alpha);
   }
   model.update();
   cout << "[***] done!" << endl;
 }
 
-void StochasticModel::initModelCompact(float maxTime, float maxInsecticide)
+void StochasticModel::initModelCompact(float maxTime, float maxInsecticide, bool warm_start)
 {
   cout << "[!!!] Creating the model!" << endl;
   objectiveFunction();
@@ -443,6 +438,11 @@ void StochasticModel::initModelCompact(float maxTime, float maxInsecticide)
   attendingPath();
   inseticideConstraint(maxInsecticide);
 
+  if (warm_start)
+  {
+    cout << "[!!!] Calling Warm-Start function!" << endl;
+    this->WarmStart(maxTime, maxInsecticide, alpha);
+  }
   model.update();
   cout << "[***] done!" << endl;
 }
@@ -461,20 +461,18 @@ void StochasticModel::objectiveFunction()
     {
       double expr;
       for (int r = 0; r < s; r++)
-      {
         expr += scenarios[r].probability * scenarios[r].cases_per_block[b];
-      }
 
       objective += (y[j][b][0] * (cases[b] + this->alpha * expr));
     }
   }
+
   for (int r = 0; r < s; r++)
   {
     GRBLinExpr expr;
     for (int b = 0; b < graph->getB(); b++)
-    {
       expr += z[b][r + 1];
-    }
+
     objective += scenarios[r].probability * expr;
   }
 
@@ -791,7 +789,7 @@ void StochasticModel::writeSolution(string result)
 
     for (int r = 0; r <= graph->getS(); r++)
     {
-      cout << "Scenario: " << r << endl;
+      // cout << "Scenario: " << r << endl;
       output << "S: " << r << endl;
 
       float timeUsed = 0, insecUsed = 0;
@@ -831,9 +829,8 @@ void StochasticModel::writeSolution(string result)
 
       output << "Route Time: " << timeUsed << endl;
       output << "Insecticide Used: " << insecUsed << endl;
-
-      cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
     }
+    cout << "OF: " << model.get(GRB_DoubleAttr_ObjVal) << endl;
   }
   catch (GRBException &ex)
   {
