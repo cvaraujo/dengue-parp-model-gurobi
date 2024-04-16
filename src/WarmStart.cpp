@@ -215,8 +215,10 @@ double WarmStart::compute_solution(Graph *graph, int max_time, float max_insecti
     }
 
     // Add the return to the dummy depot
-    auto last_arc = x.back();
-    x.push_back(make_pair(last_arc.second, n));
-
+    if (!x.empty())
+    {
+        auto last_arc = x.back();
+        x.push_back(make_pair(last_arc.second, n));
+    }
     return of;
 }

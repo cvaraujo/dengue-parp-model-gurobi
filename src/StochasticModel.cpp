@@ -915,9 +915,9 @@ bool StochasticModel::check_solution(float max_time, float max_insecticide)
         if (x[i][arc->getD()][r].get(GRB_DoubleAttr_X) > 0.5)
         {
           time += timeArc(arc->getLength(), this->default_vel);
-          if (!used_arc[i][arc->getD()])
+          if (!used_arc[i][arc->getD()] && insecticide > 0)
           {
-            cout << "[!!!] Not used arc!" << endl;
+            cout << "[!!!] Not used arc on scenario: " << r << endl;
             return false;
           }
         }
